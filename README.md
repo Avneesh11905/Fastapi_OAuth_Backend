@@ -94,7 +94,7 @@ Currently, the template uses `ResendAdapter`. To swap it:
            # SendGrid logic here
            pass
            
-       async def send_password_reset_email(self, to_email: str, token: str) -> None:
+       async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
            # SendGrid logic here
            pass
            
@@ -161,7 +161,7 @@ This template uses a dynamic **OAuth Registry** powered by Authlib. To add a new
         # 3. Return a standardized profile for the Core domain
         return OAuthUserInfo(
             provider="discord",
-            oauth_sub=str(data["id"]),
+            sub=str(data["id"]),
             email=data.get("email"),
             name=data.get("username"),
             picture=None 
@@ -202,7 +202,7 @@ To implement your custom RBAC/PBAC rules, edit the `CustomAuthorizationAdapter`:
 
 ```python
 # src/authorization/adapters/custom_authorization.py
-class CustomAuthorizationAdapter(AuthorizationPort):
+class CustomAuthorizationAdapter(AuthorizationPort[AsyncSession]):
     
     # 1. Stateless Roles (Injected into JWT)
     async def get_custom_claims(self, session: AsyncSession, user_id: str) -> dict:
@@ -482,6 +482,7 @@ Here is your treasure map to the backend API.
 | `POST` | `/auth/verify-email/resend` | Lost the code? Generates and emails a brand new OTP. |
 | `POST` | `/auth/login/local` | Authenticates with email/password. Boom! You've got an `HttpOnly` session cookie! (Call `/auth/refresh` for the JWT). |
 | `GET` | `/auth/login/{provider}` | Redirects the user to an OAuth provider (e.g., `/auth/login/google`). |
+| `GET` | `/auth/callback/{provider}` | Handles the OAuth provider redirect and establishes the session. |
 | `POST` | `/auth/refresh` | Rotates the `HttpOnly` Refresh Token cookie and issues a fresh JWT. |
 | `POST` | `/auth/password/forgot`| Starts the "Forgot Password" flow. Emails a link with a short-lived reset token. |
 | `POST` | `/auth/password/reset`| Completes the "Forgot Password" flow. Accepts the token and a new password. |
