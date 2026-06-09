@@ -1,0 +1,41 @@
+# Environments
+.env**
+.venv
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing and Tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+tests/
+
+# Database
+*.sqlite3
+alembic/
+alembic.ini
+alembic.ini.bak
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project Docs & Dev Configs
+README.md
+.env.example
+docker-compose.yml
+runserver.py
+pytest.ini
+.gitignore
+.dockerignore
+Dockerfile
+scripts/

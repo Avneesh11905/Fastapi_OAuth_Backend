@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>{{ self.header_title() }}</title>
+    <style>
+        body { font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; background-color: #fdf2f8; color: #1f2937; margin: 0; padding: 0; }
+        .wrapper { padding: 40px 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 8px 30px rgba(236,72,153,0.15); border: 3px solid #fbcfe8; }
+        .header { background: #ec4899; padding: 40px 30px; text-align: center; border-bottom: 4px dashed #fbcfe8; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 32px; font-weight: 800; transform: rotate(-2deg); }
+        .content { padding: 40px 30px; font-size: 18px; line-height: 1.6; }
+        .btn-container { text-align: center; margin: 30px 0; }
+        .btn { background-color: #ec4899; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 18px; display: inline-block; box-shadow: 0 4px 0 #be185d; transition: transform 0.1s; }
+        .btn:hover { transform: translateY(2px); box-shadow: 0 2px 0 #be185d; }
+        .footer { background: #fdf2f8; padding: 30px; text-align: center; border-top: 3px solid #fbcfe8; font-weight: 600; }
+        .footer p { font-size: 14px; color: #db2777; margin: 5px 0; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="container">
+    <div class="header">
+      <h1>{% block header_title %}Welcome{% endblock %}</h1>
+    </div>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+    <div class="footer">
+      <p>Thanks for joining {{ proj_name }}!</p>
+      <p>&copy; {{ proj_name }} {{ now().year }} ✨</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+"""
+Module: Session
+Contains pure domain entities related to tracking user sessions and devices.
+"""
+from pydantic import BaseModel
+from datetime import datetime
+
+class ClientMetadata(BaseModel):
+    """Metadata about the client making the request (e.g., extracted from HTTP headers)."""
+    ip_address: str | None = None
+    user_agent: str | None = None
+
+class ActiveSession(BaseModel):
+    """Represents an active, unexpired login session for a user."""
+    family_id: str
+    ip_address: str | None
+    user_agent: str | None
+    created_at: datetime
+    last_active: datetime
+    is_current: bool
+    auth_provider: str

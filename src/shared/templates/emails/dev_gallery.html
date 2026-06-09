@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Theme Gallery</title>
+    <style>
+        :root { --bg: #f3f4f6; --text: #1f2937; --card-bg: #ffffff; --border: #d1d5db; --card-border: #e5e7eb; }
+        [data-theme='dark'] { --bg: #121212; --text: #e5e7eb; --card-bg: #1e1e1e; --border: #374151; --card-border: #374151; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0 20px 20px 20px; background: var(--bg); color: var(--text); transition: background 0.3s, color 0.3s; margin: 0; }
+        .nav { position: sticky; top: 0; background: var(--bg); z-index: 100; padding: 20px 0; margin-bottom: 30px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); transition: background 0.3s; }
+        .nav a { cursor: pointer; padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: var(--text); font-weight: 500; transition: all 0.2s; }
+        .nav a:hover { opacity: 0.8; }
+        .nav a.active { background: #4f46e5; border-color: #4f46e5; color: #ffffff; }
+        .template-grid { display: flex; flex-wrap: wrap; gap: 30px; }
+        .template-card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid var(--card-border); }
+        .template-card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; font-family: monospace; }
+        iframe { min-width: 300px; max-width: 100%; min-height: 200px; border: 1px solid var(--card-border); border-radius: 8px; background: #ffffff; transition: filter 0.3s, width 0.3s, min-width 0.3s, max-width 0.3s; }
+        [data-device='mobile'] iframe { width: 375px !important; min-width: 375px; max-width: 375px; }
+        [data-device='tablet'] iframe { width: 768px !important; min-width: 768px; max-width: 768px; }
+        [data-device='desktop'] iframe { width: 600px !important; min-width: 600px; max-width: 600px; }
+        /* Gmail Dark Mode Simulation via CSS Filters */
+        [data-theme='dark'] iframe { filter: invert(1) hue-rotate(180deg); }
+        .nav button { cursor: pointer; padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-weight: 500; transition: all 0.2s; }
+        .nav button:hover { opacity: 0.8; }
+        .nav button.active { background: #4f46e5; border-color: #4f46e5; color: #ffffff; }
+        .nav-group { display: flex; gap: 10px; align-items: center; border-right: 2px solid var(--border); padding-right: 15px; }
+        .nav-group:last-child { border-right: none; }
+        .header-title { margin: 20px 0 0 0; }
+    </style>
+</head>
+<body>
+    <h1 class="header-title">Email Theme Gallery</h1>
+    <div class="nav">
+        <div class="nav-group">
+            <strong>Appearance:</strong>
+            <button onclick="toggleMode()" id="mode-toggle-btn">🌙 Dark Mode</button>
+        </div>
+        <div class="nav-group">
+            <strong>Theme:</strong>
+            {% for t in themes %}
+                <a href="/dev/email/preview?theme={{ t }}" class="{% if t == active_theme %}active{% endif %}">{{ t | capitalize }}</a>
+            {% endfor %}
+        </div>
+        <div class="nav-group">
+            <strong>Device:</strong>
+            <button id="btn-device-desktop" class="active" onclick="setDevice('desktop')">🖥️ Desktop</button>
+            <button id="btn-device-tablet" onclick="setDevice('tablet')">📟 Tablet</button>
+            <button id="btn-device-mobile" onclick="setDevice('mobile')">📱 Mobile</button>
+        </div>
+    </div>
+    <div class="template-grid">
+        {% for tmpl in templates %}
+        <div class="template-card">
+            <h3>{{ tmpl }}</h3>
+            <iframe src="/dev/email/preview/{{ tmpl }}?theme={{ active_theme }}" onload="this.style.height = (this.contentWindow.document.documentElement.scrollHeight + 30) + 'px';"></iframe>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function toggleMode() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newMode = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newMode);
+            localStorage.setItem('email-preview-mode', newMode);
+            document.getElementById('mode-toggle-btn').innerText = newMode === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        }
+        
+        function setDevice(device) {
+            document.documentElement.setAttribute('data-device', device);
+            document.getElementById('btn-device-desktop').className = device === 'desktop' ? 'active' : '';
+            document.getElementById('btn-device-mobile').className = device === 'mobile' ? 'active' : '';
+            localStorage.setItem('email-preview-device', device);
+            
+            // Allow iframes to recalculate height based on new constrained width
+            setTimeout(() => {
+                document.querySelectorAll('iframe').forEach(iframe => {
+                    iframe.style.height = (iframe.contentWindow.document.documentElement.scrollHeight + 30) + 'px';
+                });
+            }, 350);
+        }
+        
+        // Restore mode on page load
+        const savedMode = localStorage.getItem('email-preview-mode') || 'light';
+        if (savedMode === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('mode-toggle-btn').innerText = '☀️ Light Mode';
+        } else {
+            document.getElementById('mode-toggle-btn').innerText = '🌙 Dark Mode';
+        }
+        
+        // Restore device on page load
+        const savedDevice = localStorage.getItem('email-preview-device') || 'desktop';
+        setDevice(savedDevice);
+    </script>
+</body>
+</html>

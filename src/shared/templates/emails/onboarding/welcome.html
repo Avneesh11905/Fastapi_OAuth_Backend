@@ -1,0 +1,10 @@
+{% extends "layouts/base_" ~ theme ~ ".html" %}
+{% block header_title %}Welcome to {{ proj_name }}{% endblock %}
+{% block content %}
+<p>Hi {{ name }},</p>
+<p>Welcome to {{ proj_name }}! We're excited to have you on board.</p>
+<p>Click the button below to get started:</p>
+<div class="btn-container">
+    <a href="{{ login_url }}" class="btn">Go to Dashboard</a>
+</div>
+{% endblock %}

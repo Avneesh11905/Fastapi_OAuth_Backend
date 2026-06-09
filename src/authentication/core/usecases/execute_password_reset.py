@@ -1,0 +1,31 @@
+"""
+Completes the password reset lifecycle.
+Takes a secure UUID token generated during the 'Request Reset' phase.
+If the token is valid in the ephemeral cache (Redis), it hashes the new password,
+commits it to the database, and immediately invalidates the token to prevent reuse.
+"""
+from typing import Generic, TypeVar
+from src.authentication.core.ports import UserRepositoryPort
+from src.authentication.core.ports.cache.cache import CachePort
+from src.authentication.core.ports.security.password_hasher import PasswordHasherPort
+
+SessionType = TypeVar("SessionType")
+class ExecutePasswordResetUseCase(Generic[SessionType]):
+    """Handles validating the token and updating the password."""
+    
+    def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, hasher: PasswordHasherPort):
+        self.user_repo = user_repo
+        self.cache = cache
+        self.hasher = hasher
+        
+    async def execute(self, session: SessionType, token: str, new_password: str) -> bool:
+        user_id = await self.cache.get_string(f"pwd_reset:{token}")
+        if not user_id:
+            return False
+            
+        hashed_password = await self.hasher.hash_password(new_password)
+        await self.user_repo.update_password(session, user_id, hashed_password)
+        
+        # Invalidate the token
+        await self.cache.delete_key(f"pwd_reset:{token}")
+        return True

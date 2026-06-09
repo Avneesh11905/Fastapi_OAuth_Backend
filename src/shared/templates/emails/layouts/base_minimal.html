@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>{{ self.header_title() }}</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background:#ffffff; color:#000000; margin:0; padding:0; line-height: 1.6; }
+        .wrapper { padding:40px 20px; box-sizing: border-box; }
+        .container { max-width:600px; margin:0 auto; background:#ffffff; border:none; text-align: left; }
+        .header { padding:0 0 20px 0; border-bottom: 2px solid #000000; margin-bottom: 20px; }
+        .header h1 { color: #000000; font-size: 24px; margin:0; font-weight: bold; }
+        .content { padding:0; font-size: 15px; }
+        .content p, .footer p { margin: 0 0 15px 0; padding: 0; }
+        .footer { padding:20px 0 0 0; margin-top: 30px; border-top: 1px solid #eaeaea; font-size:12px; color:#888888; }
+        .btn-container { text-align: left; margin: 30px 0; }
+        .btn { display: inline-block; background-color: #000000; color: #ffffff; text-decoration: none; padding: 12px 24px; font-weight: bold; font-size: 14px; border: 1px solid #000000; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="container">
+    <div class="header">
+      <h1>{% block header_title %}Welcome{% endblock %}</h1>
+    </div>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+    <div class="footer">
+      <p>You received this because you signed up for {{ proj_name }}.</p>
+      <p>&copy; {{ proj_name }} {{ now().year }}</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
