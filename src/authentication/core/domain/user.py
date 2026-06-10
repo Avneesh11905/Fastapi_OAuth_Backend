@@ -2,6 +2,7 @@
 Module: User
 """
 from pydantic import BaseModel
+from datetime import datetime
 
 class UserIdentity(BaseModel):
     """Pure domain entity — now powered by Pydantic."""
@@ -10,6 +11,7 @@ class UserIdentity(BaseModel):
     is_verified: bool
     name: str | None = None
     picture: str | None = None
+    deleted_at: datetime | None = None
 
 class OAuthUserInfo(BaseModel):
     """Structured data returned by OAuth providers."""

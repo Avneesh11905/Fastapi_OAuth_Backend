@@ -43,9 +43,18 @@ async def get_profile(
     **Returns:**
     The user's profile object.
     """
+    cache_key = f"user_profile:{current_user.id}"
+    cache = get_container().cache_adapter
+    cached_data = await cache.get_dict(cache_key)
+    if cached_data:
+        return UserProfile(**cached_data)
+
     profile = await user_profile_repository.get_profile(db, current_user.id)
     if not profile:
         raise UserNotFoundException()
+        
+    import dataclasses
+    await cache.set_dict(cache_key, dataclasses.asdict(profile), ttl=900)
     return profile
 
 
@@ -76,6 +85,7 @@ async def update_profile(
         picture=body.picture if body.picture is not None else profile.picture,
         receive_updates=body.receive_updates if body.receive_updates is not None else profile.receive_updates
     )
+    await get_container().cache_adapter.delete_key(f"user_profile:{current_user.id}")
     return updated
 
 
@@ -103,6 +113,7 @@ async def delete_me(
     
     # 1. Delete user from database (this cascades to oauth accounts, passwords, and refresh tokens)
     await user_profile_repository.delete_user(db, current_user.id)
+    await get_container().cache_adapter.delete_key(f"user_profile:{current_user.id}")
     
     # 2. Blacklist the current access token
     jti = jwt_payload.get("jti")

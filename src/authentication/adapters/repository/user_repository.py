@@ -111,6 +111,13 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
         if user:
             user.is_verified = True
 
+    async def undelete_user(self, session: AsyncSession, user_id: str) -> None:
+        """Clear the deleted_at flag to restore a soft-deleted user."""
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            user.deleted_at = None
+
     async def cleanup_unverified_users(self, session: AsyncSession, hours_old: int = 24) -> int:
         """Delete unverified users older than the specified hours."""
         from sqlalchemy import delete
@@ -118,5 +125,15 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
         
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_old)
         stmt = delete(User).where(User.is_verified.is_(False), User.created_at < cutoff)
+        result = await session.execute(stmt)
+        return int(result.rowcount)  # type: ignore
+
+    async def cleanup_soft_deleted_users(self, session: AsyncSession, days_old: int = 30) -> int:
+        """Permanently delete users who were soft-deleted more than `days_old` days ago."""
+        from sqlalchemy import delete
+        from datetime import datetime, timedelta, timezone
+        
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
+        stmt = delete(User).where(User.deleted_at.is_not(None), User.deleted_at < cutoff)
         result = await session.execute(stmt)
         return int(result.rowcount)  # type: ignore

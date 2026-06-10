@@ -57,3 +57,11 @@ class UserRepositoryPort(Protocol[SessionType]):
     async def cleanup_unverified_users(self, session: SessionType, hours_old: int = 24) -> int:
         """Delete unverified users older than the specified hours. Returns number of deleted rows."""
         ...
+
+    async def undelete_user(self, session: SessionType, user_id: str) -> None:
+        """Restore a soft-deleted user."""
+        ...
+
+    async def cleanup_soft_deleted_users(self, session: SessionType, days_old: int = 30) -> int:
+        """Permanently delete soft-deleted users older than the specified days. Returns number of deleted rows."""
+        ...

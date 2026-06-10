@@ -37,8 +37,14 @@ async def _periodic_user_cleanup():
             async with AsyncSessionLocal() as db:
                 count_users = await get_container().user_repo.cleanup_unverified_users(db, hours_old=24)
                 if count_users:
-                    await db.commit()
                     await logger.info(f"Cleaned up {count_users} abandoned unverified user accounts")
+                    
+                count_soft_deleted = await get_container().user_repo.cleanup_soft_deleted_users(db, days_old=30)
+                if count_soft_deleted:
+                    await logger.info(f"Permanently purged {count_soft_deleted} soft-deleted user accounts")
+                
+                if count_users or count_soft_deleted:
+                    await db.commit()
         except asyncio.CancelledError:
             break
         except Exception as e:

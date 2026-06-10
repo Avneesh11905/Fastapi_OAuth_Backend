@@ -57,6 +57,10 @@ class OAuthCallbackUseCase(Generic[SessionType]):
         # Step 1: Check if this exact provider+sub already exists
         user = await self._user_repo.find_by_oauth(session, provider, oauth_sub)
         if user:
+            if user.deleted_at is not None:
+                await self._user_repo.undelete_user(session, user.id)
+                user.deleted_at = None
+                
             # We explicitly DO NOT update the name/picture here so we don't overwrite user preferences
             refresh_token = await self._refresh_repo.create(session, user.id, auth_provider=provider, client_meta=client_meta)
             return user, refresh_token
@@ -79,6 +83,10 @@ class OAuthCallbackUseCase(Generic[SessionType]):
             if not user.is_verified:
                 await self._user_repo.disable_local_login(session, user.id)
                 await self._user_repo.verify_user_email(session, user.id)
+
+            if user.deleted_at is not None:
+                await self._user_repo.undelete_user(session, user.id)
+                user.deleted_at = None
 
             await self._user_repo.link_oauth_account(session, user.id, provider, oauth_sub)
             refresh_token = await self._refresh_repo.create(session, user.id, auth_provider=provider, client_meta=client_meta)

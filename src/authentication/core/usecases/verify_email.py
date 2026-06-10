@@ -41,11 +41,11 @@ class VerifyEmailUseCase(Generic[SessionType]):
         user = await self._user_repo.find_by_email(session, email)
         if not user:
             await self._logger.warning(f"Verification failed: User {email} not found")
-            raise InvalidCredentialsException(message="User not found")
+            raise InvalidCredentialsException(detail="User not found")
             
         if user.is_verified:
             await self._logger.warning(f"Verification failed: User {email} is already verified")
-            raise InvalidCredentialsException(message="Email is already verified. Please log in.")
+            raise InvalidCredentialsException(detail="Email is already verified. Please log in.")
 
         # 2. Fetch pending registration payload from Redis
         email_hash = hashlib.sha256(email.encode()).hexdigest()
@@ -54,14 +54,14 @@ class VerifyEmailUseCase(Generic[SessionType]):
         
         if not payload:
             await self._logger.warning(f"Verification failed: No pending registration found for {email}")
-            raise InvalidCredentialsException(message="Invalid OTP or email, or registration expired")
+            raise InvalidCredentialsException(detail="Invalid OTP or email, or registration expired")
             
         # 3. Check 5-minute expiry FIRST
         current_time = int(time.time())
         otp_expires_at = int(payload.get("otp_expires_at", 0))
         if current_time > otp_expires_at:
             await self._logger.warning(f"Verification failed: OTP expired for {email}")
-            raise InvalidTokenException(message="OTP has expired. Please request a new one.")
+            raise InvalidTokenException(detail="OTP has expired. Please request a new one.")
             
         # 4. Check attempts using atomic incr to prevent brute-force race conditions
         attempts_key = f"otp_attempts:{email_hash}"
@@ -73,7 +73,7 @@ class VerifyEmailUseCase(Generic[SessionType]):
         if attempts > 5:
             await self._cache.delete_key(redis_key)
             await self._logger.warning(f"Verification failed: Too many OTP attempts for {email}")
-            raise InvalidTokenException(message="Too many failed attempts. Please request a new OTP.")
+            raise InvalidTokenException(detail="Too many failed attempts. Please request a new OTP.")
             
         # 5. Compare OTP securely
         stored_otp_hash = str(payload.get("otp", ""))
@@ -81,7 +81,7 @@ class VerifyEmailUseCase(Generic[SessionType]):
         
         if not verify_otp_hash(provided_otp, stored_otp_hash):
             await self._logger.warning(f"Verification failed: Incorrect OTP for {email}")
-            raise InvalidTokenException(message="Invalid OTP")
+            raise InvalidTokenException(detail="Invalid OTP")
             
         # 5. Success! Mark the user as verified in PostgreSQL
         await self._user_repo.verify_user_email(session, str(user.id))

@@ -55,6 +55,12 @@ class LoginLocalUserUseCase(Generic[SessionType]):
             await self._logger.warning(f"Login failed: Invalid password for user {user.id}")
             raise InvalidCredentialsException()
 
+        # Restore user if soft deleted
+        if user.deleted_at is not None:
+            await self._user_repo.undelete_user(session, user.id)
+            user.deleted_at = None
+            await self._logger.info(f"User {user.id} account restored on local login")
+
         # Issue a long-lived refresh token. The API layer will wrap this in an HttpOnly cookie.
         token = await self._refresh_repo.create(session, user.id, client_meta=client_meta)
         await self._logger.info(f"User {user.id} logged in successfully via local auth")

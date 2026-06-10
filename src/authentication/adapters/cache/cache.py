@@ -21,16 +21,15 @@ class RedisCacheAdapter:
 
     async def get_dict(self, key: str) -> dict | None:
         """Retrieve a cached dict by key. Returns None on cache miss."""
-        data = await self._client.hgetall(key)
+        data = await self._client.get(key)
         if not data:
             return None
             
-        return data
+        return json.loads(data)
 
     async def set_dict(self, key: str, data: dict, ttl: int) -> None:
-        """Store a dict under key using Redis HSET with a TTL in seconds."""
-        await self._client.hset(key, mapping=data)
-        await self._client.expire(key, ttl)
+        """Store a dict under key using Redis SET with a TTL in seconds."""
+        await self._client.set(key, json.dumps(data), ex=ttl)
 
     async def delete_key(self, key: str) -> None:
         """Remove a key from Redis. No-op if key doesn't exist."""

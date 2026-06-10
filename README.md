@@ -469,6 +469,9 @@ You only *have* to build two routes on your frontend to handle the core flows:
 > [!IMPORTANT]
 > **Token Mechanics:** The backend returns the **Access Token** in the JSON body, which you must attach as `Authorization: Bearer <token>` to protected API requests. The **Refresh Token** is set as a secure, `HttpOnly` cookie—so the browser handles it completely automatically!
 
+> [!NOTE]
+> **Account Recovery (Soft Deletes):** When a user deletes their account (`DELETE /users/me`), the backend revokes their session but retains their ID in the database for 30 days. You should inform your users on the frontend that their data is scheduled for deletion, but they can easily recover their account by simply logging back in during this 30-day window!
+
 ---
 
 ### 🗺️ 2. API Reference Checklist
@@ -498,9 +501,9 @@ Here is your treasure map to the backend API.
 #### 👤 User Profile (`/users` prefix)
 | Method | Endpoint | Description |
 |:---:|---|---|
-| `GET` | `/users/me` | Fetches the currently authenticated user's profile data (ID, email, name, picture, receive_updates, and `login_methods`). |
+| `GET` | `/users/me` | Fetches the currently authenticated user's profile data. **Note:** This endpoint implements Lazy Caching via Redis, resulting in zero database hits for successive calls. Cache is automatically invalidated upon updates. |
 | `PATCH` | `/users/me` | Updates display name, profile picture, or the `receive_updates` opt-in preference. *(Requires `X-CSRF` header)*. |
-| `DELETE`| `/users/me` | Permanently wipes the account and cascades deletion to all linked data. *(Requires `X-CSRF` header)*. |
+| `DELETE`| `/users/me` | Soft deletes the user's account and revokes their session. Users have a 30-day recovery window to log back in and automatically restore their account before it is permanently purged by a background worker. *(Requires `X-CSRF` header)*. |
 
 ---
 

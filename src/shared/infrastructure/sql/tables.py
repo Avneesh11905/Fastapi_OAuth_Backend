@@ -21,6 +21,7 @@ class User(Base):
     picture: Mapped[str | None] = mapped_column(String, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     receive_updates: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

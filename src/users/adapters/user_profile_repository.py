@@ -49,9 +49,10 @@ class SQLUserProfileRepository:
         return self._to_profile(user)
 
     async def delete_user(self, session: AsyncSession, user_id: str) -> None:
-        """Delete a user. SQLAlchemy cascading will clean up tokens, oauth, and passwords."""
+        """Soft delete a user."""
+        from datetime import datetime, timezone
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user:
-            await session.delete(user)
+            user.deleted_at = datetime.now(timezone.utc)
             await session.commit()

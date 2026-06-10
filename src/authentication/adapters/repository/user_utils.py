@@ -14,4 +14,5 @@ def to_identity(user: User) -> UserIdentity:
         is_verified=user.is_verified,
         name=user.name,
         picture=user.picture,
+        deleted_at=user.deleted_at,
     )
