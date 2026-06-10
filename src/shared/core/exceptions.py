@@ -15,17 +15,11 @@ from src.users.core.domain.exceptions import UserBaseException
 
 logger = AsyncSQLLogger("ExceptionHandlers")
 
-def build_error_response(status_code: int, message: str, details: list[dict[str, Any]] | None = None) -> JSONResponse:
-    """Helper to build a consistent JSON error response format."""
+def build_error_response(status_code: int, detail: str | list[dict[str, Any]]) -> JSONResponse:
+    """Helper to build a consistent JSON error response format matching FastAPI standards."""
     return JSONResponse(
         status_code=status_code,
-        content={
-            "error": {
-                "code": status_code,
-                "message": message,
-                "details": details or []
-            }
-        }
+        content={"detail": detail}
     )
 
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -43,7 +37,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "type": err.get("type")
         })
     await logger.warning(f"Validation Error at {request.url.path}: {errors}")
-    return build_error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, "Validation Error", errors)
+    return build_error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, errors)
 
 async def auth_domain_exception_handler(request: Request, exc: AuthBaseException) -> JSONResponse:
     """Handles all auth-related Domain Exceptions gracefully by dynamically reading their status code."""
