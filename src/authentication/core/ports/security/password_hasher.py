@@ -16,3 +16,7 @@ class PasswordHasherPort(Protocol):
     async def verify_password(self, password: str, hashed_password: str) -> bool:
         """Verify a plaintext password against a stored hash."""
         ...
+
+    async def dummy_verify(self) -> None:
+        """Simulate a password verification to prevent timing attacks."""
+        ...

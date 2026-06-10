@@ -6,23 +6,23 @@ from datetime import datetime
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=8, max_length=128)
     name: str | None = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., max_length=128)
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str | None = None
-    new_password: str = Field(min_length=8)
+    current_password: str | None = Field(default=None, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr

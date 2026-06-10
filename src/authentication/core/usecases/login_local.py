@@ -32,6 +32,7 @@ class LoginLocalUserUseCase(Generic[SessionType]):
         user = await self._user_repo.find_by_email(session, email)
         if not user:
             await self._logger.warning(f"Login failed: Email {email} not found")
+            await self._hasher.dummy_verify()
             raise InvalidCredentialsException()
 
         # Gatekeeper: Block users who haven't proved ownership of their email.
@@ -45,6 +46,7 @@ class LoginLocalUserUseCase(Generic[SessionType]):
         # We must prevent them from logging in locally to avoid bypassing the OAuth provider.
         if not stored_hash:
             await self._logger.warning(f"Login failed: User {user.id} has no password set (OAuth only)")
+            await self._hasher.dummy_verify()
             raise InvalidCredentialsException()
 
         # Timing attack mitigation: We only verify the hash if it exists. 

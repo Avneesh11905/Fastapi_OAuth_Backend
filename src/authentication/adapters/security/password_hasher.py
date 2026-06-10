@@ -20,4 +20,8 @@ class Argon2PasswordHasher:
     async def verify_password(self, password: str, hashed_password: str) -> bool:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.pwd_context.verify, password, hashed_password)
+
+    async def dummy_verify(self) -> None:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self.pwd_context.dummy_verify)
     
