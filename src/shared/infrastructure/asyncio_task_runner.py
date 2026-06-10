@@ -11,5 +11,10 @@ class AsyncioTaskRunner(TaskRunnerPort):
     This allows us to run background operations synchronously without 
     coupling the caller to the asyncio library.
     """
+    def __init__(self):
+        self._background_tasks = set()
+
     def add_task(self, task: Callable[P, typing.Coroutine[Any, Any, Any]], *args: P.args, **kwargs: P.kwargs) -> None:
-        asyncio.create_task(task(*args, **kwargs))
+        t = asyncio.create_task(task(*args, **kwargs))
+        self._background_tasks.add(t)
+        t.add_done_callback(self._background_tasks.discard)

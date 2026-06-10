@@ -25,7 +25,8 @@ class LogoutUseCase(Generic[SessionType]):
             
         if access_token:
             try:
-                payload = jwt.decode(access_token, options={"verify_signature": False})
+                from src.shared.config import app_settings
+                payload = jwt.decode(access_token, key=app_settings.JWT_PUBLIC_KEY, algorithms=["RS256"], options={"verify_signature": True, "verify_exp": False})
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti and exp:

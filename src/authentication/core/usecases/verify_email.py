@@ -63,8 +63,13 @@ class VerifyEmailUseCase(Generic[SessionType]):
             await self._logger.warning(f"Verification failed: OTP expired for {email}")
             raise InvalidTokenException(message="OTP has expired. Please request a new one.")
             
-        # 4. Check attempts
-        attempts = payload.get("attempts", 0) + 1
+        # 4. Check attempts using atomic incr to prevent brute-force race conditions
+        attempts_key = f"otp_attempts:{email_hash}"
+        attempts = await self._cache.incr(attempts_key)
+        if attempts == 1:
+            from src.shared.config import token_settings
+            await self._cache.set_string(attempts_key, "1", token_settings.OTP_RESEND_WINDOW_SECONDS)
+
         if attempts > 5:
             await self._cache.delete_key(redis_key)
             await self._logger.warning(f"Verification failed: Too many OTP attempts for {email}")
@@ -75,9 +80,6 @@ class VerifyEmailUseCase(Generic[SessionType]):
         provided_otp = str(otp)
         
         if not verify_otp_hash(provided_otp, stored_otp_hash):
-            from src.shared.config import token_settings
-            payload["attempts"] = attempts
-            await self._cache.set_dict(redis_key, payload, token_settings.OTP_RESEND_WINDOW_SECONDS)
             await self._logger.warning(f"Verification failed: Incorrect OTP for {email}")
             raise InvalidTokenException(message="Invalid OTP")
             

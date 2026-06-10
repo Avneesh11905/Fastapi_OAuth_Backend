@@ -62,6 +62,9 @@ class MockUserRepository:
         )
         self.users[user_id] = updated_user
 
+    async def update_password(self, session, user_id: str, new_password_hash: str) -> None:
+        self.passwords[user_id] = new_password_hash
+
 class MockEmailSender:
     def __init__(self):
         self.sent_otps = {}
@@ -91,13 +94,22 @@ class MockCache:
         if key in self.data:
             del self.data[key]
 
+    async def incr(self, key: str) -> int:
+        if key not in self.data:
+            self.data[key] = "1"
+            return 1
+        else:
+            val = int(self.data[key]) + 1
+            self.data[key] = str(val)
+            return val
+
 
 class MockRefreshTokenPort:
-    async def create(self, session, user_id: str, client_meta=None) -> str:
+    async def create(self, session, user_id: str, auth_provider: str = "local", client_meta=None) -> str:
         return f"mock_token_for_{user_id}"
 
-    async def validate(self, session, token: str, client_meta=None) -> tuple[UserIdentity | None, str | None]:
-        return None, None
+    async def validate(self, session, token: str, client_meta=None) -> tuple[UserIdentity | None, str | None, str | None]:
+        return None, None, None
 
     async def revoke(self, session, token: str) -> None:
         pass

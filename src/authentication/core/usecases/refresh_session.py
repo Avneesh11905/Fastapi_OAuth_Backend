@@ -26,12 +26,14 @@ class RefreshSessionUseCase(Generic[SessionType]):
         Validates the refresh token and returns (new_access_token, new_refresh_token).
         Returns (None, None) if the refresh token is invalid.
         """
-        user, new_refresh_token = await self._refresh_repo.validate(session, refresh_token, client_meta=client_meta)
+        user, new_refresh_token, family_id = await self._refresh_repo.validate(session, refresh_token, client_meta=client_meta)
         if hasattr(session, 'commit'):
             await session.commit()
         if not user:
             return None, None
             
         custom_claims = await self._claims_provider.get_custom_claims(session, user.id)
-        access_token = self._access_token.create(user, extra_claims=custom_claims)
+        # Embed the family_id so the middleware can check it against the Redis blacklist
+        combined_claims = {"family_id": family_id, **custom_claims} if custom_claims else {"family_id": family_id}
+        access_token = self._access_token.create(user, extra_claims=combined_claims)
         return access_token, new_refresh_token

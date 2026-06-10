@@ -11,11 +11,15 @@ import secrets
 
 def extract_client_metadata(request: Request) -> ClientMetadata:
     """Extracts IP address and User-Agent from the incoming request."""
-    ip = request.client.host if request.client else None
+    ip = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip")
+    if ip:
+        ip = ip.split(",")[0].strip()
+    else:
+        ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
     return ClientMetadata(ip_address=ip, user_agent=ua)
 
-def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
+def set_refresh_token_cookie(response: Response, refresh_token: str, request: Request | None = None) -> None:
     """Standardized utility to set the refresh token cookie and CSRF double-submit cookie."""
     response.set_cookie(
         key="refresh_token",
@@ -29,7 +33,11 @@ def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
     )
     
     # Set the CSRF double-submit cookie (MUST be readable by JS)
-    csrf_token = secrets.token_urlsafe(32)
+    csrf_token = None
+    if request:
+        csrf_token = request.cookies.get("csrf_token")
+    if not csrf_token:
+        csrf_token = secrets.token_urlsafe(32)
     response.set_cookie(
         key="csrf_token",
         value=csrf_token,
@@ -59,14 +67,14 @@ def delete_refresh_token_cookie(response: Response) -> None:
         path=cookie_settings.PATH,
     )
 
-def build_auth_response(refresh_token: str, message: str = "Authenticated successfully") -> JSONResponse:
+def build_auth_response(refresh_token: str, message: str = "Authenticated successfully", request: Request | None = None) -> JSONResponse:
     """Builds a standardized JSONResponse indicating success, with the refresh token attached."""
     response = JSONResponse(content={"message": message})
-    set_refresh_token_cookie(response, refresh_token)
+    set_refresh_token_cookie(response, refresh_token, request)
     return response
 
-def build_auth_redirect(refresh_token: str) -> RedirectResponse:
+def build_auth_redirect(refresh_token: str, request: Request | None = None) -> RedirectResponse:
     """Builds a redirect to the frontend with the refresh token cookie attached."""
     response = RedirectResponse(url=url_settings.FRONTEND_URL)
-    set_refresh_token_cookie(response, refresh_token)
+    set_refresh_token_cookie(response, refresh_token, request)
     return response

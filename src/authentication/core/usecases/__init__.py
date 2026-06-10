@@ -23,4 +23,5 @@ __all__ = [
     "RefreshSessionUseCase",
     "ListSessionsUseCase",
     "RevokeSessionUseCase",
+    "ChangePasswordUseCase",
 ]

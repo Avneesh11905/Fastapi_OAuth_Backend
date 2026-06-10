@@ -63,5 +63,8 @@ async def revoke_session(
     try:
         await usecase.execute(db, user.id, family_id)
         await db.commit()
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        from src.authentication.core.domain.exceptions import SessionNotFoundException
+        if isinstance(e, SessionNotFoundException):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise e

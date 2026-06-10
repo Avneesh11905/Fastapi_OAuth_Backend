@@ -5,7 +5,6 @@ along with automatic context injection (like request IDs).
 """
 from src.shared.infrastructure.sql.tables import SystemLog
 from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-import inspect
 import asyncio
 from typing import TypedDict
 
@@ -34,24 +33,25 @@ async def _log_worker_loop():
                 except asyncio.QueueEmpty:
                     break
                     
-            async with AsyncSessionLocal() as db:
-                for item in entries:
-                    log_row = SystemLog(
-                        level=item["level"], 
-                        source=item["source"], 
-                        message=item["message"],
-                        file=item["filename"],
-                        line=item["lineno"]
-                    )
-                    db.add(log_row)
-                await db.commit()
-                
-            for _ in entries:
-                _log_queue.task_done()
+            try:
+                async with AsyncSessionLocal() as db:
+                    for item in entries:
+                        log_row = SystemLog(
+                            level=item["level"], 
+                            source=item["source"], 
+                            message=item["message"],
+                            file=item["filename"],
+                            line=item["lineno"]
+                        )
+                        db.add(log_row)
+                    await db.commit()
+            except Exception:
+                pass
+            finally:
+                for _ in entries:
+                    _log_queue.task_done()
         except asyncio.CancelledError:
             break
-        except Exception:
-            pass
 
 def start_log_worker_task():
     global _log_worker_task
@@ -80,11 +80,6 @@ class AsyncSQLLogger:
         """Write a log entry to the queue."""
         filename = None
         lineno = None
-        frame = inspect.currentframe()
-        if frame and frame.f_back and frame.f_back.f_back:
-            caller_frame = frame.f_back.f_back
-            filename = caller_frame.f_code.co_filename
-            lineno = caller_frame.f_lineno
             
         try:
             _log_queue.put_nowait({

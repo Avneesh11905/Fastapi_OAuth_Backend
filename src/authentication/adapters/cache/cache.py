@@ -44,6 +44,9 @@ class RedisCacheAdapter:
         """Retrieve a string from Redis."""
         return cast(str | None, await self._client.get(key))
 
+    async def incr(self, key: str) -> int:
+        return await self._client.incr(key)
+
 
 class MemoryCacheAdapter:
     """Implements CachePort using an in-memory dictionary."""
@@ -92,3 +95,19 @@ class MemoryCacheAdapter:
             if item:
                 return item[0]
             return None
+
+    async def incr(self, key: str) -> int:
+        async with self._lock:
+            self._cleanup()
+            item = self._store.get(key)
+            val = 0
+            expire_at = time.time() + 31536000 # 1 year default
+            if item:
+                try:
+                    val = int(item[0])
+                except ValueError:
+                    val = 0
+                expire_at = item[1]
+            val += 1
+            self._store[key] = (str(val), expire_at)
+            return val

@@ -65,7 +65,7 @@ async def login_local(
     client_meta = extract_client_metadata(request)
     user, refresh_token = await usecase.execute(db, req.email, req.password, client_meta=client_meta)
     await db.commit()
-    return build_auth_response(refresh_token)
+    return build_auth_response(refresh_token, request=request)
 
 @router.patch("/password", response_model=MessageResponse, dependencies=[Depends(verify_csrf)])
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)

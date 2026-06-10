@@ -13,6 +13,7 @@ client_id, client_secret = oauth_settings.get_credentials("google")
     client_id=client_id,
     client_secret=client_secret,
     client_kwargs={"scope": "openid email profile"},
+    authorize_params={"prompt": "consent"},
 )
 async def parse_google_user(provider, token) -> OAuthUserInfo:
     google_info = token.get("userinfo")

@@ -52,6 +52,6 @@ async def refresh(
     response = JSONResponse(content={"access_token": access_token})
 
     if new_refresh_token:
-        set_refresh_token_cookie(response, new_refresh_token)
+        set_refresh_token_cookie(response, new_refresh_token, request)
 
     return response

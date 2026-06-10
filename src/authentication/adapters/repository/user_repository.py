@@ -117,6 +117,6 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
         from datetime import datetime, timedelta, timezone
         
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_old)
-        stmt = delete(User).where(User.is_verified == False, User.created_at < cutoff)
+        stmt = delete(User).where(User.is_verified.is_(False), User.created_at < cutoff)
         result = await session.execute(stmt)
-        return result.rowcount
+        return int(result.rowcount)  # type: ignore

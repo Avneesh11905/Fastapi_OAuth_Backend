@@ -4,6 +4,7 @@ Maps raw database rows into pure `UserProfile` domain entities to prevent ORM le
 """
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from src.users.core.domain import UserProfile
 from src.shared.infrastructure.sql.tables import User
 
@@ -27,7 +28,7 @@ class SQLUserProfileRepository:
         )
 
     async def get_profile(self, session: AsyncSession, user_id: str) -> UserProfile | None:
-        result = await session.execute(select(User).where(User.id == user_id))
+        result = await session.execute(select(User).options(selectinload(User.oauth_accounts)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             return None
@@ -36,7 +37,7 @@ class SQLUserProfileRepository:
     async def update_profile(
         self, session: AsyncSession, user_id: str, name: str | None, picture: str | None, receive_updates: bool
     ) -> UserProfile:
-        result = await session.execute(select(User).where(User.id == user_id))
+        result = await session.execute(select(User).options(selectinload(User.oauth_accounts)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             from src.users.core.domain.exceptions import UserNotFoundException
@@ -45,7 +46,6 @@ class SQLUserProfileRepository:
         user.picture = picture
         user.receive_updates = receive_updates
         await session.commit()
-        await session.refresh(user)
         return self._to_profile(user)
 
     async def delete_user(self, session: AsyncSession, user_id: str) -> None:

@@ -22,7 +22,7 @@ class RequestPasswordResetUseCase(Generic[SessionType]):
         
     async def execute(self, session: SessionType, email: str) -> None:
         user = await self.user_repo.find_by_email(session, email)
-        if not user:
+        if not user or not user.is_verified:
             # Silently return to prevent email enumeration attacks
             return
             

@@ -3,7 +3,8 @@ Handles reading and writing Refresh Tokens.
 """
 from datetime import datetime, timedelta, timezone
 import secrets
-from uuid import UUID, uuid4
+from uuid import UUID
+from uuid6 import uuid7
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.authentication.core.domain import UserIdentity
@@ -35,7 +36,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         refresh = RefreshToken(
             token=hashed,
             user_id=user_id,
-            family_id=family_id or uuid4(),
+            family_id=family_id or uuid7(),
             expires_at=expires_at,
             ip_address=ip_addr,
             user_agent=u_agent,
@@ -52,6 +53,9 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
             if self._cache:
                 await self._cache.delete_key(cache_key(row.token))
             await session.delete(row)
+            
+        if self._cache:
+            await self._cache.set_string(f"blacklist:family:{family_id}", "revoked", ttl=900)
 
     async def revoke(self, session: AsyncSession, token: str) -> None:
         """Revoke a refresh token and its entire rotation family."""
@@ -80,24 +84,24 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
             await session.delete(t)
         return len(token_list)
 
-    async def validate(self, session: AsyncSession, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None]:
+    async def validate(self, session: AsyncSession, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, str | None]:
         hashed = hash_token(token)
 
         result = await session.execute(select(RefreshToken).where(RefreshToken.token == hashed))
         refresh = result.scalar_one_or_none()
 
         if not refresh:
-            return None, None
+            return None, None, None
 
         now = datetime.now(timezone.utc)
 
         if refresh.used:
             await self._revoke_family(session, refresh.family_id)
-            return None, None
+            return None, None, None
 
         if refresh.expires_at < now:
             await session.delete(refresh)
-            return None, None
+            return None, None, None
 
         if client_meta:
             refresh.ip_address = client_meta.ip_address or refresh.ip_address
@@ -107,7 +111,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         user_result = await session.execute(select(User).where(User.id == refresh.user_id))
         user = user_result.scalar_one_or_none()
         if not user:
-            return None, None
+            return None, None, None
 
         user_identity = UserIdentity(
             id=str(user.id),
@@ -131,7 +135,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
                 await self._cache.delete_key(cache_key(hashed))
             new_token = await self.create(session, str(user.id), family_id=refresh.family_id, auth_provider=refresh.auth_provider, client_meta=client_meta)
 
-        return user_identity, new_token
+        return user_identity, new_token, str(refresh.family_id)
 
     async def get_active_sessions(self, session: AsyncSession, user_id: str, current_token: str | None = None) -> list[ActiveSession]:
         now = datetime.now(timezone.utc)

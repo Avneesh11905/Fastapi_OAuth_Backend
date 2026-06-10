@@ -24,9 +24,7 @@ from src.authentication.core.usecases import (
     ListSessionsUseCase,
     RevokeSessionUseCase
 )
-from src.authentication.core.usecases.login_local import LoginLocalUserUseCase
 from src.authentication.core.usecases.change_password import ChangePasswordUseCase
-from src.authentication.core.usecases.verify_email import VerifyEmailUseCase
 from src.authentication.core.ports import ClaimsProviderPort
 from src.authentication.core.ports.cache.cache import CachePort
 from sqlalchemy.ext.asyncio import AsyncSession

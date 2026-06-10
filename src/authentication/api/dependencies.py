@@ -58,9 +58,13 @@ async def get_jwt_payload(
         raise InvalidTokenException("Access token expired or invalid")
 
     jti = payload["jti"]
+    family_id = payload.get("family_id")
 
     if await cache_adapter.get_string(f"blacklist:{jti}"):
         raise InvalidTokenException("Access token revoked")
+        
+    if family_id and await cache_adapter.get_string(f"blacklist:family:{family_id}"):
+        raise InvalidTokenException("Session family revoked")
 
     # Attach the strongly typed UserIdentity so downstream dependencies can access it if needed
     payload["_user_obj"] = user

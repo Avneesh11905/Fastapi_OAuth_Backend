@@ -83,6 +83,7 @@ async def update_profile(
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def delete_me(
     request: Request,
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
     jwt_payload: Annotated[dict, Depends(get_jwt_payload)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
@@ -101,7 +102,6 @@ async def delete_me(
     """
     
     # 1. Delete user from database (this cascades to oauth accounts, passwords, and refresh tokens)
-    current_user = jwt_payload["_user_obj"]
     await user_profile_repository.delete_user(db, current_user.id)
     
     # 2. Blacklist the current access token

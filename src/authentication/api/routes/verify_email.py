@@ -36,7 +36,7 @@ async def verify_email(
     """
     user, refresh_token = await usecase.execute(db, req.email, req.otp)
     await db.commit()
-    return build_auth_response(refresh_token, message="Email verified successfully")
+    return build_auth_response(refresh_token, message="Email verified successfully", request=request)
 
 @router.post("/verify-email/resend", response_model=MessageResponse)
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)

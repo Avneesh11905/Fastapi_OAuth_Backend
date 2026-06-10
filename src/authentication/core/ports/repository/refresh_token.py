@@ -13,10 +13,10 @@ SessionType = TypeVar("SessionType", contravariant=True)
 class RefreshTokenRepositoryPort(Protocol[SessionType]):
     """Interface for managing long-lived refresh tokens."""
 
-    async def validate(self, session: SessionType, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None]:
+    async def validate(self, session: SessionType, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, str | None]:
         """
         Validate a refresh token.
-        Returns (user_identity, new_token).
+        Returns (user_identity, new_token, family_id).
         new_token is set if the token was rotated, None otherwise.
         """
         ...

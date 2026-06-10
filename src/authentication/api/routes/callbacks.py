@@ -48,4 +48,4 @@ async def oauth_callback(
     user, refresh_token = await usecase.execute(db, user_info, client_meta=client_meta)
     await db.commit()
     
-    return build_auth_redirect(refresh_token)
+    return build_auth_redirect(refresh_token, request)

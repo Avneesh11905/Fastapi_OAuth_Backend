@@ -77,7 +77,7 @@ def test_client(mock_usecases):
     from src.users.core.domain.profile import UserProfile
     
     mock_profile_repo = AsyncMock()
-    mock_profile = UserProfile(id="123", email="test@test.com", name="Test", picture=None, receive_updates=False)
+    mock_profile = UserProfile(id="123", email="test@test.com", name="Test", picture=None, receive_updates=False, login_methods=["local"])
     mock_profile_repo.get_profile.return_value = mock_profile
     mock_profile_repo.update_profile.return_value = mock_profile
     
@@ -92,7 +92,7 @@ def test_client(mock_usecases):
     oauth_infra.PARSERS["google"] = AsyncMock(return_value=None)
     
     with patch("src.users.api.routes.profile.user_profile_repository", mock_profile_repo), \
-         patch("src.__init__.start_log_worker", new_callable=AsyncMock), \
+         patch("src.__init__.start_log_worker_task", new_callable=AsyncMock), \
          patch("src.__init__.start_token_cleanup_task"), \
          patch("src.__init__.start_log_cleanup_task"), \
          patch("src.__init__.stop_token_cleanup_task"), \
@@ -143,6 +143,7 @@ def test_execute_password_reset(test_client):
 
 def test_logout(test_client):
     test_client.cookies.set("refresh_token", "mock_refresh_token")
+    test_client.cookies.set("csrf_token", "1")
     response = test_client.post(
         "/auth/logout",
         headers={"X-CSRF": "1"},
@@ -167,6 +168,7 @@ def test_oauth_callback(test_client):
 
 def test_refresh_token(test_client):
     test_client.cookies.set("refresh_token", "mock_refresh_token")
+    test_client.cookies.set("csrf_token", "1")
     response = test_client.post(
         "/auth/refresh", 
         headers={"X-CSRF": "1"}
@@ -189,6 +191,7 @@ def test_get_profile(test_client):
     assert response.json()["name"] == "Test"
 
 def test_update_profile(test_client):
+    test_client.cookies.set("csrf_token", "1")
     response = test_client.patch(
         "/users/me",
         json={"name": "New Test"},
@@ -198,6 +201,7 @@ def test_update_profile(test_client):
     assert response.json()["name"] == "Test"
 
 def test_update_profile_receive_updates(test_client):
+    test_client.cookies.set("csrf_token", "1")
     response = test_client.patch(
         "/users/me",
         json={"receive_updates": True},
@@ -206,6 +210,7 @@ def test_update_profile_receive_updates(test_client):
     assert response.status_code == 200
 
 def test_delete_me(test_client):
+    test_client.cookies.set("csrf_token", "1")
     response = test_client.delete("/users/me", headers={"X-CSRF": "1"})
     assert response.status_code == 204
 

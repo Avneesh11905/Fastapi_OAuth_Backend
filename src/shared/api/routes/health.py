@@ -7,7 +7,8 @@ from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.infrastructure.sql.connection import get_db
 from sqlalchemy import text
-from src.authentication.api.container import get_container
+from fastapi.responses import JSONResponse
+from src.shared.config import app_settings, database_settings
 
 router = APIRouter()
 
@@ -24,16 +25,22 @@ async def health_check(db: Annotated[AsyncSession, Depends(get_db)]):
         db_status = "error"
         
     # Check Redis/Cache
-    cache = get_container().cache_adapter
-    try:
-        await cache.set_string("health_ping", "pong", 5)
-        val = await cache.get_string("health_ping")
-        cache_status = "ok" if val == "pong" else "error"
-    except Exception:
-        cache_status = "error"
+    cache_status = "ok"
+    if app_settings.CACHE_TYPE.lower() == "redis":
+        try:
+            import redis.asyncio as redis
+            client = redis.from_url(database_settings.REDIS_URL)
+            await client.ping()
+            cache_status = "ok"
+        except Exception:
+            cache_status = "error"
         
-    return {
-        "status": "ok" if db_status == "ok" and cache_status == "ok" else "degraded",
-        "database": db_status,
-        "cache": cache_status
-    }
+    status_str = "ok" if db_status == "ok" and cache_status == "ok" else "degraded"
+    return JSONResponse(
+        status_code=200 if status_str == "ok" else 503,
+        content={
+            "status": status_str,
+            "database": db_status,
+            "cache": cache_status
+        }
+    )

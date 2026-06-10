@@ -30,3 +30,7 @@ class CachePort(Protocol):
         """Retrieve a string value."""
         ...
 
+    async def incr(self, key: str) -> int:
+        """Atomically increment a key and return the new value."""
+        ...
+
