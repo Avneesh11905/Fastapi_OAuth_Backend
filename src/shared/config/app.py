@@ -6,8 +6,15 @@ from .base import _BaseSettings
 from typing import Optional
 from pydantic_settings import SettingsConfigDict
 
+from pydantic import field_validator
+
 class URLSettings(_BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
+
+    @field_validator("FRONTEND_URL")
+    @classmethod
+    def strip_trailing_slash(cls, v: str) -> str:
+        return v.rstrip("/")
 
 
 def split_origins(v: str | list[str]) -> list[str]:
@@ -28,7 +35,10 @@ class AppSettings(_BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [i.strip() for i in self.CORS_ORIGINS.split(",") if i.strip()] if self.CORS_ORIGINS else []
+        if not self.CORS_ORIGINS:
+            return []
+        # Strip whitespace and trailing slashes to prevent subtle CORS failures
+        return [i.strip().rstrip("/") for i in self.CORS_ORIGINS.split(",") if i.strip()]
 
 class CookieSettings:
     """Non-env cookie settings derived from app_settings."""

@@ -310,7 +310,7 @@ The `.env` file controls the entire behavior of the application without needing 
 |---|---|---|
 | `FRONTEND_URL` | `"http://localhost:3000"` | Used to build deep links (like password reset URLs) sent in emails. |
 | `PROJECT_NAME` | `"FastAPI OAuth"` | The title shown in Swagger UI and the sender name in some emails. |
-| `DEV` | `True` or `False` | Enables development routes (like the email gallery), auto-reloading, and Swagger UI. Must be `False` in production. |
+| `DEV` | `True` or `False` | <b>When `True`:</b> Enables development routes (like the email gallery), auto-reloading, Swagger UI, and automatically adds local URLs (`http://localhost:3000`, `5173`, `8000`) to the allowed CORS origins.<br><br><b>When `False`:</b> Disables these development features and enables strict rate limiting to protect the API. Must be `False` in production. |
 | `CORS_ORIGINS` | `"https://myapp.com"` | Comma-separated list of allowed frontend URLs. Crucial for security. *(Note: If `DEV=True`, `http://localhost:3000`, `5173`, and `8000` are automatically whitelisted, so you do not need to add them here).* |
 | `SESSION_SECRET` | `"super_secret_string"` | Used to cryptographically sign the `X-CSRF` state validation. |
 | `JWT_PRIVATE_KEY` | `"-----BEGIN RSA PRIVATE KEY-----..."` | Used to cryptographically *sign* the Access Tokens. |
@@ -321,7 +321,7 @@ The `.env` file controls the entire behavior of the application without needing 
 |---|---|---|
 | `CACHE_TYPE` | `"redis"` or `"memory"` | Determines the caching backend. MUST be `"redis"` in production for rate limits and JWT blacklists. |
 | `LOG_RETENTION_DAYS` | `28` | How many days of system logs to keep in the database before the background worker deletes them. |
-| `DB_ASYNC_URL` | `postgresql+asyncpg://...` | Connection string to your PostgreSQL database. |
+| `DB_ASYNC_URL` | `postgresql+asyncpg://...` | Connection string to your PostgreSQL database. *(Note: If you provide a standard `postgresql://` or `postgresql+psycopg2://` URL, the backend will automatically convert it to use the `asyncpg` driver for you).* |
 | `REDIS_HOST` | `"auth_redis"` | Hostname or IP for your Redis server. |
 | `REDIS_PORT` | `6379` | Port for your Redis server. |
 | `REDIS_DB` | `0` | Redis logical database index. |
