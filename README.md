@@ -10,6 +10,10 @@ This template provides a **strict, organized foundation** to handle authenticati
 
 You can safely drop this into your new projects, easily swap out infrastructure components (like the database, email provider, or cache), and focus immediately on building your core features.
 
+> [!TIP]
+> **React Frontend Companion**  
+> We have built an official reference implementation demonstrating how to securely consume this API (handling stateless JWTs, silent token rotation, and CSRF protection). Check it out here: [Avneesh11905/Vite_React_OAuth_Frontend](https://github.com/Avneesh11905/Vite_React_OAuth_Frontend)
+
 ---
 
 ## 📑 Table of Contents
