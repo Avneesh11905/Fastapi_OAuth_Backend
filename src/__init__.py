@@ -11,11 +11,11 @@ from src.authentication.infrastructure.tasks import (
     start_user_cleanup_task, stop_user_cleanup_task
 )
 from src.shared.infrastructure.tasks import start_log_cleanup_task, stop_log_cleanup_task
-from src.shared.infrastructure.logger import start_log_worker_task, stop_log_worker_task
+from src.shared.adapters.logger import start_log_worker_task, stop_log_worker_task
 from src.shared.api.routes.health import router as health_router
 from src.shared.api.dependencies import limiter
 from src.shared.core.exceptions import register_exception_handlers
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from src.shared.adapters.logger import AsyncSQLLogger
 from contextlib import asynccontextmanager
 
 logger = AsyncSQLLogger(__name__)

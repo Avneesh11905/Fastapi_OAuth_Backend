@@ -4,7 +4,7 @@ Module: Dependencies
 from typing import Annotated
 from fastapi import Request, Depends
 from src.authentication.core.ports.security.access_token import AccessTokenPort
-from src.authentication.core.ports.cache.cache import CachePort
+from src.shared.core.ports.cache import CachePort
 from src.authentication.core.domain import UserIdentity
 from src.authentication.core.domain.exceptions import (
     CSRFValidationException,

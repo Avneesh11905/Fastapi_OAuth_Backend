@@ -46,10 +46,12 @@ You can safely drop this into your new projects, easily swap out infrastructure 
     - [5.2.2 👤 User Profile (`/users` prefix)](#522--user-profile-users-prefix)
   - [5.3 ♻️ Handling Token Rotation (Axios Example)](#53-️-handling-token-rotation-axios-example)
   - [5.4 🛡️ CSRF Protection Details](#54-️-csrf-protection-details)
-- [6. 🛠️ How to Swap Adapters](#6-️-how-to-swap-adapters)
+- [6. 🛠️ How to Change Core Infrastructure](#6-️-how-to-change-core-infrastructure)
   - [6.1 Swapping the Cache (e.g., Redis -\> Memcached)](#61-swapping-the-cache-eg-redis---memcached)
   - [6.2 Swapping the Email Provider (e.g., Resend -\> SendGrid)](#62-swapping-the-email-provider-eg-resend---sendgrid)
-  - [6.3 The Universal Swap Pattern (Any Adapter)](#63-the-universal-swap-pattern-any-adapter)
+  - [6.3 How to Change the Database (SQL -\> MongoDB)](#63-how-to-change-the-database-sql---mongodb)
+  - [6.4 Adding Shared Infra (e.g. RabbitMQ, Celery)](#64-adding-shared-infra-eg-rabbitmq-celery)
+  - [6.5 The Universal Swap Pattern (Any Adapter)](#65-the-universal-swap-pattern-any-adapter)
 - [7. 🌍 Adding an OAuth Provider](#7--adding-an-oauth-provider)
   - [7.1 Adding a New Provider](#71-adding-a-new-provider)
   - [7.2 Removing a Provider](#72-removing-a-provider)
@@ -399,50 +401,56 @@ To prevent Cross-Site Request Forgery (CSRF), state-changing operations on sensi
 
 ---
 
-## 6. 🛠️ How to Swap Adapters
+## 6. 🛠️ How to Change Core Infrastructure
 
 One of the greatest strengths of this template is its plug-and-play nature. Because the Core business logic only communicates through **Ports**, you can completely replace any infrastructure by simply writing a new **Adapter**.
 
 ### 6.1 Swapping the Cache (e.g., Redis -> Memcached)
-The template ships with two built-in cache adapters out of the box. Set `USE_MEMORY_CACHE=True` in your `.env` to use the in-process `MemoryCacheAdapter` (no Redis needed, ideal for local dev). Otherwise, it defaults to `RedisCacheAdapter`. To plug in a completely different backend (e.g., Memcached), follow the universal 3-step pattern in [6.3](#63-the-universal-swap-pattern-any-adapter) using `CachePort` as your interface.
+The template ships with two built-in cache adapters in the `shared` kernel out of the box. Set `USE_MEMORY_CACHE=True` in your `.env` to use the in-process `MemoryCacheAdapter` (no Redis needed, ideal for local dev). Otherwise, it defaults to `RedisCacheAdapter`. To plug in a completely different backend (e.g., Memcached), follow the universal 3-step pattern in [6.5](#65-the-universal-swap-pattern-any-adapter) using the shared `CachePort` as your interface.
 
 > [!TIP]
 > **Automatic Rate Limiter Sync**  
 > The built-in rate limiter (`slowapi`) automatically connects to whatever you specify in `CACHE_URL`. If you swap to Memcached, simply set `CACHE_URL="memcached://localhost:11211"` and both your custom Cache Adapter and the Rate Limiter will seamlessly switch over!
 
 ### 6.2 Swapping the Email Provider (e.g., Resend -> SendGrid)
-Currently, the template uses `ResendAdapter`. To swap it:
-1. Create a new file: `src/authentication/adapters/email/sendgrid_adapter.py`.
-2. Implement the `EmailSenderPort` protocol:
+To drastically simplify Developer Experience, email provider logic lives in the `shared` kernel. 
+Currently, the template uses `ResendEmailClient`. To swap it:
+1. Create a new file: `src/shared/adapters/sendgrid_email_client.py`.
+2. Implement the `SharedEmailClientPort` protocol:
    ```python
-   from src.authentication.core.ports import EmailSenderPort
+   from src.shared.core.ports.email_client import SharedEmailClientPort
 
-   class SendGridAdapter(EmailSenderPort):
-       async def send_verification_email(self, to_email: str, otp: str) -> None:
-           # SendGrid logic here
-           pass
-           
-       async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
-           # SendGrid logic here
-           pass
-           
-       async def send_welcome_email(self, to_email: str, name: str | None) -> None:
-           # SendGrid logic here
+   class SendGridEmailClient:
+       async def send_email(self, to: str, subject: str, html: str) -> None:
+           # SendGrid dispatch logic here
            pass
    ```
 3. Update the Composition Root in `src/authentication/api/container.py` to use your new adapter:
    ```python
-   # Old: from src.authentication.adapters.email.email_sender import ResendAdapter
-   # Old: email_sender = ResendAdapter(...)
+   # Old: from src.shared.adapters.resend_email_client import ResendEmailClient
+   # Old: email_client = ResendEmailClient(...)
    
-   from src.authentication.adapters.email.sendgrid_adapter import SendGridAdapter
-   email_sender = SendGridAdapter()
+   from src.shared.adapters.sendgrid_email_client import SendGridEmailClient
+   email_client = SendGridEmailClient()
    ```
-*Done! The core use cases will seamlessly start using SendGrid without any logic changes.*
+*Done! You don't have to touch Jinja2 templates or the authentication domain's business logic. All auth emails will seamlessly start using SendGrid.*
 
-### 6.3 The Universal Swap Pattern (Any Adapter)
+### 6.3 How to Change the Database (SQL -> MongoDB)
+Because all database queries are abstracted behind Repository Ports, replacing PostgreSQL with MongoDB is straightforward:
+1. Change `DB_ASYNC_URL` in your `.env` to your MongoDB connection string.
+2. Edit `src/shared/config/database.py` and `src/shared/api/dependencies.py` to yield a MongoDB async client instead of an SQLAlchemy `AsyncSession`.
+3. Create a new adapter `src/authentication/adapters/mongo_user_repository.py` that implements `UserRepositoryPort`.
+4. Plug it into `src/authentication/api/container.py`.
 
-The two examples above (email and cache) follow the exact same 3-step recipe that applies to **every** adapter in this system. You are never locked in anywhere — if it has a Port, it can be swapped.
+### 6.4 Adding Shared Infra (e.g. RabbitMQ, Celery)
+Want to use RabbitMQ instead of the built-in `AsyncioTaskRunner`?
+1. **Define the Port**: The interface is already defined at `src/shared/core/ports/task_runner.py`.
+2. **Create the Adapter**: Create `src/shared/adapters/rabbitmq_task_runner.py` that implements the `TaskRunnerPort`.
+3. **Plug it in**: Open `container.py` and swap `AsyncioTaskRunner()` with `RabbitMQTaskRunner()`. Every domain will instantly start sending background tasks to your RabbitMQ queue.
+
+### 6.5 The Universal Swap Pattern (Any Adapter)
+
+The examples above follow the exact same 3-step recipe that applies to **every** adapter in this system. You are never locked in anywhere — if it has a Port, it can be swapped.
 
 **The 3-step recipe:**
 1. **Find the Port** — Locate the `typing.Protocol` interface in `src/<domain>/core/ports/` that defines the contract.
@@ -456,17 +464,13 @@ Here is every swappable port in the system:
 
 | Port Interface | Located In | What It Controls |
 |---|---|---|
-| `EmailSenderPort` | `src/authentication/core/ports/email/` | Email delivery provider (Resend, SendGrid, SMTP, etc.) |
-| `CachePort` | `src/authentication/core/ports/cache/` | Caching backend (Redis, Memcached, in-memory, etc.) |
+| `SharedEmailClientPort` | `src/shared/core/ports/` | Email delivery provider (Resend, SendGrid, SMTP, etc.) |
+| `CachePort` | `src/shared/core/ports/` | Caching backend (Redis, Memcached, in-memory, etc.) |
+| `TaskRunnerPort` | `src/shared/core/ports/` | Background task engine (asyncio, Celery, RabbitMQ, etc.) |
+| `EmailSenderPort` | `src/authentication/core/ports/` | Domain-specific auth email rendering logic |
 | `AccessTokenPort` | `src/authentication/core/ports/security/` | JWT signing scheme (RS256, HS256, custom, etc.) |
 | `UserRepositoryPort` | `src/authentication/core/ports/repository/` | User storage backend (PostgreSQL, MongoDB, etc.) |
-| `TaskRunnerPort` | `src/shared/core/ports/` | Background task engine (asyncio, Celery, RabbitMQ, etc.) |
 | `ClaimsProviderPort` | `src/authentication/core/ports/` | Custom JWT claims / authorization rules |
-
-**Example — Swapping the Token Scheme (RS256 → Custom):**
-1. Implement `AccessTokenPort` in `src/authentication/core/ports/security/access_token.py`.
-2. Write your adapter (e.g., `src/authentication/adapters/security/custom_token_adapter.py`).
-3. Swap the dependency in `src/authentication/api/container.py`.
 
 ---
 

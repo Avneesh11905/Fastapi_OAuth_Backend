@@ -9,7 +9,7 @@ import jwt
 from datetime import datetime, timezone
 from typing import Generic, TypeVar
 from src.authentication.core.ports import RefreshTokenRepositoryPort
-from src.authentication.core.ports.cache.cache import CachePort
+from src.shared.core.ports.cache import CachePort
 
 SessionType = TypeVar("SessionType")
 class LogoutUseCase(Generic[SessionType]):

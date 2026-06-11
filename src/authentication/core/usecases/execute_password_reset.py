@@ -6,7 +6,7 @@ commits it to the database, and immediately invalidates the token to prevent reu
 """
 from typing import Generic, TypeVar
 from src.authentication.core.ports import UserRepositoryPort
-from src.authentication.core.ports.cache.cache import CachePort
+from src.shared.core.ports.cache import CachePort
 from src.authentication.core.ports.security.password_hasher import PasswordHasherPort
 
 SessionType = TypeVar("SessionType")

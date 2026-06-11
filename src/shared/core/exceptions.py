@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from src.shared.adapters.logger import AsyncSQLLogger
 from typing import Any
 
 from src.authentication.core.domain.exceptions import AuthBaseException

@@ -8,8 +8,8 @@ our core usecases purely dependent on interfaces (Ports).
 from src.shared.config import url_settings, email_settings, app_settings
 from src.authentication.adapters.security.access_token import JWTAccessTokenAdapter
 from src.authentication.adapters.repository.refresh_token_repository import DBRefreshTokenRepositoryAdapter
-from src.authentication.adapters.cache.cache import RedisCacheAdapter
-from src.authentication.adapters.cache.cache import MemoryCacheAdapter
+from src.shared.adapters.cache.redis_cache import RedisCacheAdapter
+from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
 from src.authentication.adapters.repository.user_repository import SQLUserRepositoryAdapter
 from src.authentication.core.usecases import (
     OAuthCallbackUseCase,
@@ -26,12 +26,13 @@ from src.authentication.core.usecases import (
 )
 from src.authentication.core.usecases.change_password import ChangePasswordUseCase
 from src.authentication.core.ports import ClaimsProviderPort
-from src.authentication.core.ports.cache.cache import CachePort
+from src.shared.core.ports.cache import CachePort
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.infrastructure.redis.connection import redis_client
-from src.shared.infrastructure.logger import AsyncSQLLogger
-from src.shared.infrastructure.asyncio_task_runner import AsyncioTaskRunner
-from src.authentication.adapters.email.email_sender import ResendAdapter
+from src.shared.adapters.logger import AsyncSQLLogger
+from src.shared.adapters.task_runner import AsyncioTaskRunner
+from src.shared.adapters.email_client import ResendEmailClient
+from src.authentication.adapters.email_sender import AuthEmailService
 from src.authentication.adapters.security.password_hasher import Argon2PasswordHasher
 from src.shared.config import token_settings
 from pathlib import Path
@@ -62,8 +63,13 @@ class Container:
 
         self.task_runner = AsyncioTaskRunner()
 
-        self.email_sender = ResendAdapter(
+        self.email_client = ResendEmailClient(
             api_key=email_settings.API_KEY,
+            from_email=email_settings.FROM,
+        )
+
+        self.email_sender = AuthEmailService(
+            email_client=self.email_client,
             from_email=email_settings.FROM,
             templates_dir=Path(__file__).parent.parent.parent / "shared" / "templates" / "emails",
             logger=AsyncSQLLogger("EmailSender"),

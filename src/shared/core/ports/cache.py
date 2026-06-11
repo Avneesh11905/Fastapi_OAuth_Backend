@@ -1,8 +1,9 @@
 """
 Port: Cache
 
-This module defines the interface (Port) for cache.
-Core business logic relies on these interfaces rather than concrete implementations.
+Defines the generic interface for a key-value cache with TTL support.
+Any domain can depend on this port. Infrastructure adapters (Redis, Memcached, Memory)
+live in src/shared/adapters/.
 """
 from typing import Protocol
 
@@ -33,4 +34,3 @@ class CachePort(Protocol):
     async def incr(self, key: str) -> int:
         """Atomically increment a key and return the new value."""
         ...
-

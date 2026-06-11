@@ -3,7 +3,7 @@ Module: Registry
 """
 from typing import Callable, Awaitable, Any
 from authlib.integrations.starlette_client import OAuth  # type: ignore
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from  src.shared.adapters.logger import AsyncSQLLogger
 from src.authentication.core.domain.user import OAuthUserInfo
 
 logger = AsyncSQLLogger("OAuthRegistry")

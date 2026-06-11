@@ -3,7 +3,7 @@ Module: Tasks
 """
 import asyncio
 from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from src.shared.adapters.logger import AsyncSQLLogger
 from src.authentication.api.container import get_container
 
 logger = AsyncSQLLogger("BackgroundTasks")

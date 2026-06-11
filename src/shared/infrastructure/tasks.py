@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import delete
 from src.shared.infrastructure.sql.connection import AsyncSessionLocal
 from src.shared.infrastructure.sql.tables import SystemLog
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from src.shared.adapters.logger import AsyncSQLLogger
 from src.shared.config import log_settings
 
 logger = AsyncSQLLogger("LogCleanupTask")

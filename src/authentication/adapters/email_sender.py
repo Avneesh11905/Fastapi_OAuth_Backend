@@ -1,41 +1,60 @@
 """
-Base Email Adapter
-Provides the common logic for rendering Jinja templates and queuing background email tasks.
-Specific providers (Resend, SendGrid, Mailgun) just need to inherit this and implement `_dispatch_email`.
+Adapter: Auth Email Service
+
+Implements EmailSenderPort for the authentication domain.
+Handles all auth-specific email composition (Jinja rendering, background task queuing)
+and delegates the actual dispatch to the injected SharedEmailClientPort.
+
+To swap the email provider (e.g. Resend -> SendGrid), replace the SharedEmailClientPort
+implementation in the container — this file never changes.
 """
 from pathlib import Path
-from jinja2 import Environment, FileSystemLoader
 import datetime
-from src.authentication.core.ports.email.email_sender import EmailSenderPort
+from jinja2 import Environment, FileSystemLoader
+import asyncio
+from src.authentication.core.ports.email_sender import EmailSenderPort  # noqa: F401
+from src.shared.core.ports.email_client import SharedEmailClientPort
 from src.shared.core.ports.logger import LoggerPort
 from src.shared.core.ports.task_runner import TaskRunnerPort
 
-class BaseEmailAdapter(EmailSenderPort):
-    """Abstract base class for email sending adapters."""
 
-    def __init__(self, from_email: str, templates_dir: Path, logger: LoggerPort, proj_name: str, template_name: str, frontend_url: str, task_runner: TaskRunnerPort):
+class AuthEmailService:
+    """
+    Implements EmailSenderPort for authentication emails.
+    Composes domain-specific emails (Welcome, OTP, Password Reset) using Jinja2 templates
+    and dispatches them via the injected SharedEmailClientPort.
+    """
+
+    def __init__(
+        self,
+        email_client: SharedEmailClientPort,
+        from_email: str,
+        templates_dir: Path,
+        logger: LoggerPort,
+        proj_name: str,
+        template_name: str,
+        frontend_url: str,
+        task_runner: TaskRunnerPort,
+    ) -> None:
+        self._client = email_client
         self._from_email = f"{proj_name} <{from_email}>"
         self._logger = logger
         self._proj_name = proj_name
         self._template_name = template_name
         self._frontend_url = frontend_url
         self._task_runner = task_runner
-        
+
         self._jinja_env = Environment(loader=FileSystemLoader(templates_dir))
         self._jinja_env.globals["now"] = datetime.datetime.now
 
-    async def _dispatch_email(self, to_email: str, subject: str, html_content: str) -> None:
-        """Override this method in the concrete provider (e.g., ResendAdapter)."""
-        raise NotImplementedError("Must be implemented by concrete email adapter")
-
-    async def _render_and_send(self, to_email: str, subject: str, template_name: str, context: dict) -> None:
+    def _render_and_send(self, loop: asyncio.AbstractEventLoop, to_email: str, subject: str, template_name: str, context: dict) -> None:
         try:
             template = self._jinja_env.get_template(template_name)
             html_content = template.render(**context)
-            await self._dispatch_email(to_email, subject, html_content)
-            await self._logger.info(f"Email '{subject}' sent to {to_email}")
+            self._client.send_email(to=to_email, subject=subject, html=html_content)
+            asyncio.run_coroutine_threadsafe(self._logger.info(f"Email '{subject}' sent to {to_email}"), loop)
         except Exception as e:
-            await self._logger.error(f"Failed to send email '{subject}' to {to_email}: {e}")
+            asyncio.run_coroutine_threadsafe(self._logger.error(f"Failed to send email '{subject}' to {to_email}: {e}"), loop)
 
     async def send_welcome_email(self, to_email: str, name: str | None) -> None:
         display_name = name or "there"
@@ -45,8 +64,10 @@ class BaseEmailAdapter(EmailSenderPort):
             "login_url": f"{self._frontend_url}/",
             "theme": self._template_name,
         }
+        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
+            loop=loop,
             to_email=to_email,
             subject=f"Welcome to {self._proj_name}!",
             template_name="onboarding/welcome.html",
@@ -59,8 +80,10 @@ class BaseEmailAdapter(EmailSenderPort):
             "proj_name": self._proj_name,
             "theme": self._template_name,
         }
+        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
+            loop=loop,
             to_email=to_email,
             subject=f"Password Reset - {self._proj_name}",
             template_name="security/password_reset.html",
@@ -73,8 +96,10 @@ class BaseEmailAdapter(EmailSenderPort):
             "proj_name": self._proj_name,
             "theme": self._template_name,
         }
+        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
+            loop=loop,
             to_email=to_email,
             subject=f"Verify your Email - {self._proj_name}",
             template_name="security/otp_verification.html",

@@ -1,6 +1,6 @@
 import importlib
 import pkgutil
-from src.shared.infrastructure.logger import AsyncSQLLogger
+from src.shared.adapters.logger import AsyncSQLLogger
 from .registry import oauth_registry
 from . import providers
 

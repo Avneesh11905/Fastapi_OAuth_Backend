@@ -7,8 +7,8 @@ Fails silently if the email does not exist to prevent enumeration attacks.
 import secrets
 from typing import Generic, TypeVar
 from src.authentication.core.ports import UserRepositoryPort
-from src.authentication.core.ports.email.email_sender import EmailSenderPort
-from src.authentication.core.ports.cache.cache import CachePort
+from src.authentication.core.ports.email_sender import EmailSenderPort
+from src.shared.core.ports.cache import CachePort
 
 SessionType = TypeVar("SessionType")
 class RequestPasswordResetUseCase(Generic[SessionType]):

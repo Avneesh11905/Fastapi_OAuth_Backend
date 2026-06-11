@@ -12,7 +12,7 @@ from src.authentication.core.domain.user import OAuthUserInfo
 if TYPE_CHECKING:
     from src.authentication.core.ports import UserRepositoryPort
     from src.authentication.core.ports import RefreshTokenRepositoryPort
-    from src.authentication.core.ports.email.email_sender import EmailSenderPort
+    from src.authentication.core.ports.email_sender import EmailSenderPort
 from typing import Generic, TypeVar
 from src.authentication.core.domain.session import ClientMetadata
 

@@ -5,8 +5,8 @@ is permanently marked as verified in the database, and the Welcome Email is disp
 """
 from src.authentication.core.ports import UserRepositoryPort
 from src.shared.core.ports.logger import LoggerPort
-from src.authentication.core.ports.cache.cache import CachePort
-from src.authentication.core.ports.email.email_sender import EmailSenderPort
+from src.shared.core.ports.cache import CachePort
+from src.authentication.core.ports.email_sender import EmailSenderPort
 from typing import Generic, TypeVar
 import hashlib
 import time

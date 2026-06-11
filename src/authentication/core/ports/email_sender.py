@@ -1,13 +1,14 @@
 """
-Port: Email
+Port: Email Sender (Authentication Domain)
 
-This module defines the interface (Port) for email.
-Core business logic relies on these interfaces rather than concrete implementations.
+Defines the interface for sending auth-specific transactional emails.
+Each domain defines its own email sender port with domain-specific methods.
 """
 from typing import Protocol
 
+
 class EmailSenderPort(Protocol):
-    """Interface for sending transactional emails."""
+    """Interface for sending authentication transactional emails."""
 
     async def send_welcome_email(self, to_email: str, name: str | None) -> None:
         """Send a welcome email to a newly registered user."""
