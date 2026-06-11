@@ -50,7 +50,7 @@ class Container:
         )
 
         self.cache_adapter: CachePort
-        if app_settings.CACHE_TYPE.lower() == "memory":
+        if app_settings.USE_MEMORY_CACHE:
             self.cache_adapter = MemoryCacheAdapter()
         else:
             self.cache_adapter = RedisCacheAdapter(client=redis_client)

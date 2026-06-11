@@ -29,7 +29,7 @@ class AppSettings(_BaseSettings):
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
     CORS_ORIGINS: Optional[str] = None
-    CACHE_TYPE: str = "redis"  # Can be "redis" or "memory"
+    USE_MEMORY_CACHE: bool = False
     COOKIE_DOMAIN: str | None = None
     COOKIE_PATH: str = "/"
 

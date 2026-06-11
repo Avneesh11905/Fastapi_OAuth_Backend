@@ -26,14 +26,15 @@ async def health_check(db: Annotated[AsyncSession, Depends(get_db)]):
         
     # Check Redis/Cache
     cache_status = "ok"
-    if app_settings.CACHE_TYPE.lower() == "redis":
-        try:
-            import redis.asyncio as redis
-            client = redis.from_url(database_settings.REDIS_URL)
-            await client.ping()
-            cache_status = "ok"
-        except Exception:
-            cache_status = "error"
+    if not app_settings.USE_MEMORY_CACHE:
+        if database_settings.CACHE_URL.startswith("redis"):
+            try:
+                import redis.asyncio as redis
+                client = redis.from_url(database_settings.CACHE_URL)
+                await client.ping()
+                cache_status = "ok"
+            except Exception:
+                cache_status = "error"
         
     status_str = "ok" if db_status == "ok" and cache_status == "ok" else "degraded"
     return JSONResponse(
