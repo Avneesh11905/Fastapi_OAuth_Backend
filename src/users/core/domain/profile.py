@@ -1,12 +1,11 @@
 """
 Defines the pure domain entity for a User Profile.
-This dataclass contains no infrastructure dependencies (like SQLAlchemy or Pydantic),
+This Pydantic model contains no infrastructure dependencies (like SQLAlchemy),
 ensuring the core business logic remains framework-agnostic.
 """
-from dataclasses import dataclass
+from pydantic import BaseModel
 
-@dataclass(frozen=True)
-class UserProfile:
+class UserProfile(BaseModel):
     id: str
     email: str
     name: str | None

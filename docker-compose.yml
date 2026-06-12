@@ -40,3 +40,15 @@ services:
       - ./redis_data:/data
     networks:
       - auth_network
+
+  celery_worker:
+    container_name: auth_celery
+    build: .
+    restart: unless-stopped
+    command: celery -A src.shared.adapters.task_runner.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - auth_network

@@ -33,11 +33,11 @@ async def verify_csrf(request: Request):
 
 
 def get_access_token_adapter() -> AccessTokenPort:
-    from src.authentication.api.container import get_container
+    from src.authentication.container import get_container
     return get_container().access_token_adapter
 
 def get_cache_adapter() -> CachePort:
-    from src.authentication.api.container import get_container
+    from src.authentication.container import get_container
     return get_container().cache_adapter
 
 async def get_jwt_payload(

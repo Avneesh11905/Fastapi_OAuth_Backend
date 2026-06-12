@@ -48,8 +48,8 @@ openapi_tags = [
 app = FastAPI(
     title=app_settings.PROJECT_NAME,
     version="0.1.0",
-    docs_url="/docs" if app_settings.DEV else None,
-    redoc_url="/redoc" if app_settings.DEV else None,
+    docs_url="/docs" if app_settings.ENV == "development" else None,
+    redoc_url="/redoc" if app_settings.ENV == "development" else None,
     openapi_tags=openapi_tags,
     lifespan=lifespan,
 )
@@ -63,7 +63,7 @@ dev_origins = [
     "http://localhost:5173", "http://127.0.0.1:5173",   # Vite (React/Vue/Svelte)
     "http://localhost:8000", "http://127.0.0.1:8000"    # FastAPI Swagger UI
 ]
-origins = list(set(app_settings.cors_origins_list + (dev_origins if app_settings.DEV else [])))
+origins = list(set(app_settings.cors_origins_list + (dev_origins if app_settings.ENV == "development" else [])))
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,15 +76,15 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=app_settings.SESSION_SECRET,
-    https_only=(not app_settings.DEV),
-    same_site="lax",
-)
+    https_only=(app_settings.ENV != "development"),
+    same_site="none" if app_settings.ENV != "development" else "lax",
+)   
 
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(health_router)
 
-if app_settings.DEV:
+if app_settings.ENV == "development":
     from src.shared.api.routes.debug_email import router as debug_email_router
     app.include_router(debug_email_router)
 

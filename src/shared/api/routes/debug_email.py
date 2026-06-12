@@ -2,7 +2,7 @@
 Exposes internal endpoints strictly for debugging email templates during development.
 Allows developers to render Jinja2 HTML templates in the browser without actually sending an email.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
@@ -13,8 +13,8 @@ from src.shared.config import app_settings, email_settings
 router = APIRouter(prefix="/dev")
 
 def dev_enabled():
-    if not app_settings.DEV:
-        raise HTTPException(status_code=404, detail="Dev routes disabled")
+    if app_settings.ENV != "development":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dev routes disabled")
     return True
 
 

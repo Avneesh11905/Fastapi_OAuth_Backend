@@ -13,7 +13,7 @@ token_settings = TokenSettings() # type: ignore
 rate_limit_settings = RateLimitSettings() # type: ignore
 log_settings = LogSettings() # type: ignore
 cookie_settings = CookieSettings(
-    dev=app_settings.DEV, 
+    env=app_settings.ENV, 
     domain=app_settings.COOKIE_DOMAIN, 
     path=app_settings.COOKIE_PATH
 )

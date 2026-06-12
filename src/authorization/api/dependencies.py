@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.authentication.api.dependencies import get_jwt_payload
 from src.shared.infrastructure.sql.connection import get_db
-from src.authorization.api.container import custom_claims_provider
+from src.authorization.container import custom_claims_provider
 
 def require_role(required_role: str) -> Callable:
     """

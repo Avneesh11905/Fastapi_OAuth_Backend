@@ -1,6 +1,6 @@
 """
 Shared utilities for mapping SQLAlchemy ORM models to pure Domain Entities.
-Ensures that the core Use Cases only ever interact with `UserIdentity` dataclasses,
+Ensures that the core Use Cases only ever interact with `UserIdentity` Pydantic models,
 preventing SQLAlchemy dependencies from leaking into the business logic layer.
 """
 from src.authentication.core.domain import UserIdentity

@@ -7,10 +7,13 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from src.shared.config import database_settings, app_settings
 
-storage_uri = "memory://" if app_settings.USE_MEMORY_CACHE else database_settings.CACHE_URL
+from src.shared.container import shared_container
+from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
+
+storage_uri = "memory://" if isinstance(shared_container.cache_adapter, MemoryCacheAdapter) else database_settings.CACHE_URL
 
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=storage_uri,
-    enabled=(not app_settings.DEV),
+    enabled=(app_settings.ENV != "development"),
 )

@@ -236,7 +236,7 @@ def test_rate_limiting(test_client):
 def test_authorization_dependencies(test_client):
     from fastapi import Depends
     from src.authorization.api.dependencies import require_role, require_permission
-    from src.authorization.api.container import custom_claims_provider
+    from src.authorization.container import custom_claims_provider
     from unittest.mock import AsyncMock
 
     # Add a dummy protected route to the test app

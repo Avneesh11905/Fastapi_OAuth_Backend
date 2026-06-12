@@ -64,8 +64,8 @@ You can safely drop this into your new projects, easily swap out infrastructure 
 - [10. ⚙️ Background Task Processing](#10-️-background-task-processing)
 - [11. 🧪 Testing](#11--testing)
 - [12. 🚨 Production Deployment Checklist](#12--production-deployment-checklist)
-  - [12.1 Enforce Redis Caching (avoid `USE_MEMORY_CACHE=True`)](#121-enforce-redis-caching-avoid-use_memory_cachetrue)
-  - [12.2 Disable Developer Mode (`DEV=False`)](#122-disable-developer-mode-devfalse)
+  - [12.1 Enforce Redis Caching](#121-enforce-redis-caching)
+  - [12.2 Set Environment to Production (`ENV="production"`)](#122-set-environment-to-production-envproduction)
   - [12.3 Strictly Define CORS Origins](#123-strictly-define-cors-origins)
   - [12.4 Understand Cookie Boundaries (`SameSite`)](#124-understand-cookie-boundaries-samesite)
   - [12.5 Swap the Background Task Runner](#125-swap-the-background-task-runner)
@@ -138,9 +138,7 @@ Each domain (except `shared`) is divided into distinct, decoupled layers:
    ```bash
    python scripts/generate_keys.py
    ```
-4. Set `USE_MEMORY_CACHE` in `.env`:
-   - `USE_MEMORY_CACHE=True`: Uses a built-in thread-safe Python dictionary. No Redis needed — great for local dev.
-   - `USE_MEMORY_CACHE=False` (or omitted): Falls through to the `RedisCacheAdapter`. Requires a local Redis server running.
+4. **Choose your Cache**: The system defaults to `MemoryCacheAdapter` for local dev (which will log a warning). To use Redis, update `src/shared/container.py` to instantiate `RedisCacheAdapter(client=redis_client)`.
 5. Run database migrations:
    ```bash
    alembic upgrade head
@@ -161,8 +159,8 @@ The `.env` file controls the entire behavior of the application without needing 
 |---|---|---|
 | `FRONTEND_URL` | `"http://localhost:3000"` | Used to build deep links (like password reset URLs) sent in emails. |
 | `PROJECT_NAME` | `"FastAPI OAuth"` | The title shown in Swagger UI and the sender name in some emails. |
-| `DEV` | `True` or `False` | <b>When `True`:</b> Enables development routes (like the email gallery), auto-reloading, Swagger UI, and automatically adds local URLs (`http://localhost:3000`, `5173`, `8000`) to the allowed CORS origins.<br><br><b>When `False`:</b> Disables these development features and enables strict rate limiting to protect the API. Must be `False` in production. |
-| `CORS_ORIGINS` | `"https://myapp.com"` | Comma-separated list of allowed frontend URLs. Crucial for security. *(Note: If `DEV=True`, `http://localhost:3000`, `5173`, and `8000` are automatically whitelisted, so you do not need to add them here).* |
+| `ENV` | `"development"` | <b>When `"development"`:</b> Enables development routes (like the email gallery), Swagger UI, and automatically adds local URLs (`http://localhost:3000`, `5173`, `8000`) to the allowed CORS origins.<br><br><b>When `"production"`:</b> Disables these development features and enforces strict cross-origin policies. |
+| `CORS_ORIGINS` | `"https://myapp.com"` | Comma-separated list of allowed frontend URLs. Crucial for security. *(Note: If `ENV="development"`, `http://localhost:3000`, `5173`, and `8000` are automatically whitelisted, so you do not need to add them here).* |
 | `SESSION_SECRET` | `"super_secret_string"` | Used to cryptographically sign the `X-CSRF` state validation. |
 | `JWT_PRIVATE_KEY` | `"-----BEGIN RSA PRIVATE KEY-----..."` | Used to cryptographically *sign* the Access Tokens. |
 | `JWT_PUBLIC_KEY` | `"-----BEGIN PUBLIC KEY-----..."` | Used to *verify* the Access Tokens. |
@@ -170,7 +168,7 @@ The `.env` file controls the entire behavior of the application without needing 
 ### 3.2 Infrastructure
 | Variable | Example | Description |
 |---|---|---|
-| `USE_MEMORY_CACHE` | `True` | Controls the caching backend. Set to `True` to use the built-in in-process dictionary (great for local dev, no Redis required). Set to `False` (or leave unset) to use the default `RedisCacheAdapter` or your own custom cache adapter. **Must not be `True` in production** — see [Section 12.1](#121-enforce-redis-caching-avoid-use_memory_cachetrue). |
+
 | `LOG_RETENTION_DAYS` | `28` | How many days of system logs to keep in the database before the background worker deletes them. |
 | `DB_ASYNC_URL` | `postgresql+asyncpg://...` | Connection string to your database. **Optional.** If omitted, falls back to a local SQLite database (`sqlite+aiosqlite:///./auth.db`). |
 | `CACHE_URL` | `"redis://localhost:6379/0"` | Connection string to your Cache & Rate Limiting server. **Optional.** Defaults to `redis://localhost:6379/0`. Can be safely swapped to `memcached://...` without breaking the system. |
@@ -406,7 +404,8 @@ To prevent Cross-Site Request Forgery (CSRF), state-changing operations on sensi
 One of the greatest strengths of this template is its plug-and-play nature. Because the Core business logic only communicates through **Ports**, you can completely replace any infrastructure by simply writing a new **Adapter**.
 
 ### 6.1 Swapping the Cache (e.g., Redis -> Memcached)
-The template ships with two built-in cache adapters in the `shared` kernel out of the box. Set `USE_MEMORY_CACHE=True` in your `.env` to use the in-process `MemoryCacheAdapter` (no Redis needed, ideal for local dev). Otherwise, it defaults to `RedisCacheAdapter`. To plug in a completely different backend (e.g., Memcached), follow the universal 3-step pattern in [6.5](#65-the-universal-swap-pattern-any-adapter) using the shared `CachePort` as your interface.
+The template ships with two built-in cache adapters in the `shared` kernel: `MemoryCacheAdapter` and `RedisCacheAdapter`. To switch between them, open `src/shared/container.py` and instantiate the one you want.
+To plug in a completely different backend (e.g., Memcached), follow the universal 3-step pattern in [6.5](#65-the-universal-swap-pattern-any-adapter) using the shared `CachePort` as your interface.
 
 > [!TIP]
 > **Automatic Rate Limiter Sync**  
@@ -598,7 +597,7 @@ This template uses beautifully styled Jinja2 HTML templates for all outbound ema
 ### 9.1 🎨 The Dev Theme Gallery
 Building HTML emails is notoriously frustrating because you normally have to send an actual email to see what it looks like. We fixed that!
 
-If `DEV=True` is set in your `.env`, we expose a special suite of developer routes that render the email templates directly in your browser. 
+If `ENV="development"` is set in your `.env`, we expose a special suite of developer routes that render the email templates directly in your browser. 
 
 Simply spin up the backend and navigate to the gallery root:
 **`http://localhost:8000/dev/email/preview`**
@@ -609,27 +608,27 @@ Here you can:
 - Test responsiveness with `Desktop`, `Tablet`, and `Mobile` width constraints.
 - Toggle `Dark Mode` to see how email clients (like Gmail) will invert your colors.
 
-*(Note: These `/dev/` routes are strictly disabled when `DEV=False` in production).*
+*(Note: These `/dev/` routes are strictly disabled when `ENV="production"`).*
 
 ---
 
 ## 10. ⚙️ Background Task Processing
 FastAPI is incredibly fast, but sending emails or writing logs can block the event loop if executed synchronously. This template uses a background task pipeline to ensure APIs return instantly.
 
-The `src/shared/infrastructure/asyncio_task_runner.py` executes tasks in the background natively. You can queue a task anywhere in your code without needing a heavy Celery worker:
+The `src/shared/adapters/task_runner/asyncio_task_runner.py` executes tasks in the background natively. You can queue a task anywhere in your code without needing a heavy Celery worker:
 
 ```python
-from src.authentication.api.container import get_container
+from src.shared.container import shared_container
 
 async def my_slow_function(user_id: str):
     pass
 
 # Push it to the background and return immediately
-get_container().task_runner.add_task(my_slow_function, user.id)
+shared_container.task_runner.add_task(my_slow_function, user.id)
 ```
 
 > [!WARNING]
-> **Production Scaling:** The built-in `asyncio_task_runner` is incredibly convenient for lightweight tasks, but it stores pending tasks in RAM. If the server crashes, pending tasks are lost. For high-throughput or mission-critical enterprise applications, it is highly recommended to swap this out for a robust message queue/worker architecture like **Celery**, **Kafka**, or **RabbitMQ**. Because the system uses a `TaskRunnerPort` interface, you can easily plug in a Celery Adapter without altering your use cases!
+> **Production Scaling:** The built-in `asyncio_task_runner` is incredibly convenient for lightweight tasks, but it stores pending tasks in RAM. If the server crashes, pending tasks are lost. For high-throughput or mission-critical enterprise applications, it is highly recommended to swap this out for a robust message queue/worker architecture. We provide a `CeleryTaskRunner` out of the box. Open `src/shared/container.py` and swap it in for production!
 
 ---
 
@@ -650,11 +649,11 @@ pytest tests/
 
 Before deploying this template to a live environment, you **must** verify the following:
 
-### 12.1 Enforce Remote Caching (avoid `USE_MEMORY_CACHE=True`)
-If `USE_MEMORY_CACHE=True` is set in your `.env`, the app uses a built-in Python dictionary. In a multi-worker production environment (e.g., `gunicorn -w 4`), **each worker will have an isolated cache**. This completely breaks Rate Limiting and JWT Blacklisting. **Do not use `USE_MEMORY_CACHE=True` in production — leave it unset or `False` to fall through to the `CACHE_URL` backend (Redis).**
+### 12.1 Enforce Remote Caching
+The default `MemoryCacheAdapter` uses a built-in Python dictionary. In a multi-worker production environment (e.g., `gunicorn -w 4`), **each worker will have an isolated cache**. This completely breaks Rate Limiting and JWT Blacklisting. Open `src/shared/container.py` and swap to `RedisCacheAdapter` before deploying.
 
-### 12.2 Disable Developer Mode (`DEV=False`)
-Leaving `DEV=True` in production exposes the `/dev/email/preview` gallery routes to the public and may trigger `uvicorn` to run in `--reload` mode, which consumes massive amounts of CPU and memory.
+### 12.2 Set Environment to Production (`ENV="production"`)
+Leaving `ENV="development"` in production exposes the `/dev/email/preview` gallery routes to the public and disables secure cookie validation.
 
 ### 12.3 Strictly Define CORS Origins
 Ensure `CORS_ORIGINS` is explicitly defined in your `.env` (e.g., `CORS_ORIGINS="https://myapp.com,https://admin.myapp.com"`). Never leave it as a wildcard `*` in production, as this opens the API up to Cross-Origin attacks.

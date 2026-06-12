@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.infrastructure.sql.connection import get_db
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
-from src.shared.config import app_settings, database_settings
+from src.shared.config import database_settings
 
 router = APIRouter()
 
@@ -25,8 +25,11 @@ async def health_check(db: Annotated[AsyncSession, Depends(get_db)]):
         db_status = "error"
         
     # Check Redis/Cache
+    from src.shared.container import shared_container
+    from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
+    
     cache_status = "ok"
-    if not app_settings.USE_MEMORY_CACHE:
+    if not isinstance(shared_container.cache_adapter, MemoryCacheAdapter):
         if database_settings.CACHE_URL.startswith("redis"):
             try:
                 import redis.asyncio as redis

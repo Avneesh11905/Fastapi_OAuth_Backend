@@ -6,7 +6,7 @@ By using these functions in the router layer, developers can leverage FastAPI's 
 `app.dependency_overrides` mechanism to mock Use Cases during testing, bridging the gap
 between Hexagonal Architecture and the FastAPI ecosystem.
 """
-from src.authentication.api.container import get_container
+from src.authentication.container import get_container
 from src.authentication.core.usecases import (
     RegisterLocalUserUseCase,
     LoginLocalUserUseCase,

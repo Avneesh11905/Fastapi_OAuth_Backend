@@ -8,8 +8,7 @@ our core usecases purely dependent on interfaces (Ports).
 from src.shared.config import url_settings, email_settings, app_settings
 from src.authentication.adapters.security.access_token import JWTAccessTokenAdapter
 from src.authentication.adapters.repository.refresh_token_repository import DBRefreshTokenRepositoryAdapter
-from src.shared.adapters.cache.redis_cache import RedisCacheAdapter
-from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
+
 from src.authentication.adapters.repository.user_repository import SQLUserRepositoryAdapter
 from src.authentication.core.usecases import (
     OAuthCallbackUseCase,
@@ -28,13 +27,11 @@ from src.authentication.core.usecases.change_password import ChangePasswordUseCa
 from src.authentication.core.ports import ClaimsProviderPort
 from src.shared.core.ports.cache import CachePort
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.shared.infrastructure.redis.connection import redis_client
-from src.shared.adapters.logger import AsyncSQLLogger
-from src.shared.adapters.task_runner import AsyncioTaskRunner
-from src.shared.adapters.email_client import ResendEmailClient
+
 from src.authentication.adapters.email_sender import AuthEmailService
 from src.authentication.adapters.security.password_hasher import Argon2PasswordHasher
 from src.shared.config import token_settings
+from src.shared.adapters.logger import AsyncSQLLogger
 from pathlib import Path
 import threading
 
@@ -50,22 +47,15 @@ class Container:
             lifetime_minutes=token_settings.ACCESS_TOKEN_LIFETIME_MINUTES,
         )
 
-        self.cache_adapter: CachePort
-        if app_settings.USE_MEMORY_CACHE:
-            self.cache_adapter = MemoryCacheAdapter()
-        else:
-            self.cache_adapter = RedisCacheAdapter(client=redis_client)
+        from src.shared.container import shared_container
+        
+        self.cache_adapter: CachePort = shared_container.cache_adapter
+        self.task_runner = shared_container.task_runner
+        self.email_client = shared_container.email_client
 
         self.refresh_token_repo = DBRefreshTokenRepositoryAdapter(
             lifetime_days=token_settings.REFRESH_TOKEN_LIFETIME_DAYS,
             cache=self.cache_adapter,
-        )
-
-        self.task_runner = AsyncioTaskRunner()
-
-        self.email_client = ResendEmailClient(
-            api_key=email_settings.API_KEY,
-            from_email=email_settings.FROM,
         )
 
         self.email_sender = AuthEmailService(
@@ -89,7 +79,7 @@ class Container:
         # The Authentication domain automatically checks if the Authorization domain 
         # has exported a custom claims provider for RBAC systems.
         try:
-            from src.authorization.api.container import custom_claims_provider
+            from src.authorization.container import custom_claims_provider
             self.claims_provider: ClaimsProviderPort = custom_claims_provider # type: ignore
         except ImportError:
             # Fallback if the developer hasn't created one

@@ -23,13 +23,12 @@ def split_origins(v: str | list[str]) -> list[str]:
     return v
 
 class AppSettings(_BaseSettings):
-    DEV: bool = False
+    ENV: str = "development"
     PROJECT_NAME: str = "FastAPI OAuth"
     SESSION_SECRET: str
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
     CORS_ORIGINS: Optional[str] = None
-    USE_MEMORY_CACHE: bool = False
     COOKIE_DOMAIN: str | None = None
     COOKIE_PATH: str = "/"
 
@@ -42,8 +41,8 @@ class AppSettings(_BaseSettings):
 
 class CookieSettings:
     """Non-env cookie settings derived from app_settings."""
-    def __init__(self, dev: bool, domain: str | None = None, path: str = "/"):
-        self.SECURE = not dev
+    def __init__(self, env: str, domain: str | None = None, path: str = "/"):
+        self.SECURE = (env != "development")
         self.HTTP_ONLY = True
         self.SAMESITE = "lax"
         self.DOMAIN = domain

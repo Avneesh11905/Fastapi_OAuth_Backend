@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from src.shared.infrastructure.sql.connection import get_db
 from src.authentication.api.dependencies import get_current_user, verify_csrf, get_jwt_payload
 from src.authentication.core.domain import UserIdentity
-from src.authentication.api.container import get_container
-from src.users.api.container import user_profile_repository
+from src.authentication.container import get_container
+from src.users.container import user_profile_repository
 from src.users.core.domain.exceptions import UserNotFoundException
 from src.shared.config import rate_limit_settings, token_settings
 from src.shared.api.utils import delete_refresh_token_cookie
@@ -53,8 +53,7 @@ async def get_profile(
     if not profile:
         raise UserNotFoundException()
         
-    import dataclasses
-    await cache.set_dict(cache_key, dataclasses.asdict(profile), ttl=900)
+    await cache.set_dict(cache_key, profile.model_dump(), ttl=900)
     return profile
 
 
