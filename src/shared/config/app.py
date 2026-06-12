@@ -44,7 +44,7 @@ class CookieSettings:
     def __init__(self, env: str, domain: str | None = None, path: str = "/"):
         self.SECURE = (env != "development")
         self.HTTP_ONLY = True
-        self.SAMESITE = "lax"
+        self.SAMESITE = "none" if env != "development" else "lax"
         self.DOMAIN = domain
         self.PATH = path
 
