@@ -33,8 +33,8 @@ async def verify_email(
     **Returns:**
     A success message upon successful verification.
     """
-    user, refresh_token = await usecase.execute(uow, req.email, req.otp)
-    pass # transaction handled by UoW
+    async with uow:
+        user, refresh_token = await usecase.execute(uow, req.email, req.otp)
     return build_auth_response(refresh_token, message="Email verified successfully", request=request)
 
 @router.post("/verify-email/resend", response_model=MessageResponse)
@@ -54,5 +54,6 @@ async def resend_verification(
     **Returns:**
     A generic success message.
     """
-    await usecase.execute(uow, req.email)
+    async with uow:
+        await usecase.execute(uow, req.email)
     return MessageResponse(message="If the email is registered and unverified, a new OTP has been sent.")

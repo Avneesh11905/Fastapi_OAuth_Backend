@@ -40,8 +40,8 @@ async def refresh(
         return Response(status_code=204)
 
     client_meta = extract_client_metadata(request)
-    access_token, new_refresh_token = await usecase.execute(uow, refresh_token, client_meta=client_meta)
-    pass # transaction handled by UoW
+    async with uow:
+        access_token, new_refresh_token = await usecase.execute(uow, refresh_token, client_meta=client_meta)
     
     if not access_token:
         response = Response(status_code=401)

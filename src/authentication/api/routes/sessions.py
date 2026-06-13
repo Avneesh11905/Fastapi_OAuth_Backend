@@ -38,7 +38,8 @@ async def list_sessions(
     A list of session metadata objects.
     """
     current_token = request.cookies.get("refresh_token")
-    sessions = await usecase.execute(uow, user.id, current_token)
+    async with uow:
+        sessions = await usecase.execute(uow, user.id, current_token)
     return sessions
 
 @router.delete("/sessions/{family_id}", status_code=204)
@@ -60,8 +61,8 @@ async def revoke_session(
     Raises a 404 error if the session family ID does not exist or does not belong to the user.
     """
     try:
-        await usecase.execute(uow, user.id, family_id)
-        pass # transaction handled by UoW
+        async with uow:
+            await usecase.execute(uow, user.id, family_id)
     except Exception as e:
         from src.authentication.core.domain.exceptions import SessionNotFoundException
         if isinstance(e, SessionNotFoundException):

@@ -44,7 +44,7 @@ async def oauth_callback(
         raise OAuthFailedException(f"Failed to authenticate with {provider}: {str(e)}")
 
     client_meta = extract_client_metadata(request)
-    user, refresh_token = await usecase.execute(uow, user_info, client_meta=client_meta)
-    pass # transaction handled by UoW
+    async with uow:
+        user, refresh_token = await usecase.execute(uow, user_info, client_meta=client_meta)
     
     return build_auth_redirect(refresh_token, request)

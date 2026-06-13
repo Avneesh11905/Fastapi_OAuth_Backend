@@ -39,8 +39,8 @@ async def register(
     **Returns:**
     A success message instructing the user to check their email.
     """
-    await usecase.execute(uow, req.email, req.password, req.name)
-    pass # transaction handled by UoW
+    async with uow:
+        await usecase.execute(uow, req.email, req.password, req.name)
     return MessageResponse(message="Successfully registered! Please check your email for the 6-digit OTP code.")
 
 @router.post("/login/local", response_model=MessageResponse)
@@ -62,8 +62,8 @@ async def login_local(
     **Note:** The user must have verified their email address before they can log in.
     """
     client_meta = extract_client_metadata(request)
-    user, refresh_token = await usecase.execute(uow, req.email, req.password, client_meta=client_meta)
-    pass # transaction handled by UoW
+    async with uow:
+        user, refresh_token = await usecase.execute(uow, req.email, req.password, client_meta=client_meta)
     return build_auth_response(refresh_token, request=request)
 
 @router.patch("/password", response_model=MessageResponse, dependencies=[Depends(verify_csrf)])
@@ -84,6 +84,6 @@ async def change_password(
     **Returns:**
     A success message.
     """
-    await usecase.execute(uow, current_user.id, req.current_password, req.new_password)
-    pass # transaction handled by UoW
+    async with uow:
+        await usecase.execute(uow, current_user.id, req.current_password, req.new_password)
     return MessageResponse(message="Password updated successfully")

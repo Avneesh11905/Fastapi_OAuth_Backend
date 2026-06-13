@@ -23,6 +23,4 @@ class SQLAlchemyUnitOfWork:
 
 async def get_uow():
     """FastAPI dependency to inject the Unit of Work."""
-    uow = SQLAlchemyUnitOfWork()
-    async with uow:
-        yield uow
+    yield SQLAlchemyUnitOfWork()

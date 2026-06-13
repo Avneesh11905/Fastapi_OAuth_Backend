@@ -65,9 +65,8 @@ async def reset_password(
     A success message upon successful password reset.
     Raises a 400 error if the token is invalid or expired.
     """
-    success = await usecase.execute(uow, body.token, body.new_password)
-    if not success:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-        
-    pass # transaction handled by UoW
+    async with uow:
+        success = await usecase.execute(uow, body.token, body.new_password)
+        if not success:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     return MessageResponse(message="Password successfully reset")

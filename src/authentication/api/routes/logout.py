@@ -43,8 +43,8 @@ async def logout(
     if auth_header and auth_header.startswith("Bearer "):
         access_token = auth_header.removeprefix("Bearer ")
         
-    await usecase.execute(uow, refresh_token, access_token)
-    pass # transaction handled by UoW
+    async with uow:
+        await usecase.execute(uow, refresh_token, access_token)
 
     response = JSONResponse(content={"message": "Logged out"})
     delete_refresh_token_cookie(response)
