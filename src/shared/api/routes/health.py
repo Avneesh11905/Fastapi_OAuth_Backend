@@ -18,7 +18,8 @@ router = APIRouter()
 async def health_check(uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]):
     # Check DB
     try:
-        await uow.session.execute(text("SELECT 1"))
+        async with uow:
+            await uow.session.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception:
         db_status = "error"
