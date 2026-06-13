@@ -4,8 +4,7 @@ Handles validating the 6-digit OTP sent via email and allowing users to request 
 """
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.usecase_dependencies import get_verify_email_usecase, get_request_new_verification_email_usecase
 from src.authentication.core.usecases import VerifyEmailUseCase, RequestNewVerificationEmailUseCase
 from src.shared.api.dependencies import limiter
@@ -21,7 +20,7 @@ router = APIRouter()
 async def verify_email(
     request: Request,
     req: VerifyEmailRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[VerifyEmailUseCase, Depends(get_verify_email_usecase)]
 ):
     """
@@ -34,8 +33,8 @@ async def verify_email(
     **Returns:**
     A success message upon successful verification.
     """
-    user, refresh_token = await usecase.execute(db, req.email, req.otp)
-    await db.commit()
+    user, refresh_token = await usecase.execute(uow, req.email, req.otp)
+    pass # transaction handled by UoW
     return build_auth_response(refresh_token, message="Email verified successfully", request=request)
 
 @router.post("/verify-email/resend", response_model=MessageResponse)
@@ -43,7 +42,7 @@ async def verify_email(
 async def resend_verification(
     request: Request,
     req: RequestNewVerificationEmail,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RequestNewVerificationEmailUseCase, Depends(get_request_new_verification_email_usecase)]
 ):
     """
@@ -55,5 +54,5 @@ async def resend_verification(
     **Returns:**
     A generic success message.
     """
-    await usecase.execute(db, req.email)
+    await usecase.execute(uow, req.email)
     return MessageResponse(message="If the email is registered and unverified, a new OTP has been sent.")

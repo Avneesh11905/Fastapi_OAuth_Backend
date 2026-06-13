@@ -7,7 +7,7 @@ from src.authentication.core.ports import UserRepositoryPort
 from src.shared.core.ports.logger import LoggerPort
 from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.shared.core.ports.cache import CachePort
-from typing import Generic, TypeVar
+from typing import Protocol, Any, Generic, TypeVar
 import hashlib
 import time
 import secrets
@@ -15,8 +15,10 @@ from src.shared.config import token_settings
 from src.authentication.core.utils import hash_otp
 
 
-SessionType = TypeVar("SessionType")
-class RequestNewVerificationEmailUseCase(Generic[SessionType]):
+class UoWPort(Protocol):
+    session: Any
+UoWType = TypeVar("UoWType", bound=UoWPort)
+class RequestNewVerificationEmailUseCase(Generic[UoWType]):
     """Handles requesting a new verification OTP."""
     
     def __init__(
@@ -28,8 +30,8 @@ class RequestNewVerificationEmailUseCase(Generic[SessionType]):
         self._email_sender = email_sender
         self._cache = cache
         
-    async def execute(self, session: SessionType, email: str) -> None:
-        user = await self._user_repo.find_by_email(session, email)
+    async def execute(self, uow: UoWType, email: str) -> None:
+        user = await self._user_repo.find_by_email(uow.session, email)
         if not user:
             # User doesn't exist. Silently return to prevent email enumeration.
             return

@@ -5,9 +5,8 @@ During deletion, it ensures the current session is securely terminated by blackl
 """
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
-from src.shared.infrastructure.sql.connection import get_db
+from src.users.api.schemas import ProfileUpdate
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.dependencies import get_current_user, verify_csrf, get_jwt_payload
 from src.authentication.core.domain import UserIdentity
 from src.authentication.container import get_container
@@ -22,10 +21,6 @@ from src.users.core.domain.profile import UserProfile
 
 router = APIRouter()
 
-class ProfileUpdate(BaseModel):
-    name: str | None = None
-    picture: str | None = None
-    receive_updates: bool | None = None
 
 
 @router.get("/me", response_model=UserProfile)
@@ -33,7 +28,7 @@ class ProfileUpdate(BaseModel):
 async def get_profile(
     request: Request,
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]
 ):
     """
     Fetch the current user's profile information.
@@ -49,7 +44,7 @@ async def get_profile(
     if cached_data:
         return UserProfile(**cached_data)
 
-    profile = await user_profile_repository.get_profile(db, current_user.id)
+    profile = await user_profile_repository.get_profile(uow.session, current_user.id)
     if not profile:
         raise UserNotFoundException()
         
@@ -63,7 +58,7 @@ async def update_profile(
     request: Request,
     body: ProfileUpdate,
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]
 ):
     """
     Update the current user's profile information.
@@ -73,12 +68,11 @@ async def update_profile(
     **Returns:**
     The updated user profile object.
     """
-    profile = await user_profile_repository.get_profile(db, current_user.id)
+    profile = await user_profile_repository.get_profile(uow.session, current_user.id)
     if not profile:
         raise UserNotFoundException()
 
-    updated = await user_profile_repository.update_profile(
-        db,
+    updated = await user_profile_repository.update_profile(uow.session,
         current_user.id,
         name=body.name if body.name is not None else profile.name,
         picture=body.picture if body.picture is not None else profile.picture,
@@ -94,7 +88,7 @@ async def delete_me(
     request: Request,
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
     jwt_payload: Annotated[dict, Depends(get_jwt_payload)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]
 ):
     """
     Permanently delete the current user's account.
@@ -111,7 +105,7 @@ async def delete_me(
     """
     
     # 1. Delete user from database (this cascades to oauth accounts, passwords, and refresh tokens)
-    await user_profile_repository.delete_user(db, current_user.id)
+    await user_profile_repository.delete_user(uow.session, current_user.id)
     await get_container().cache_adapter.delete_key(f"user_profile:{current_user.id}")
     
     # 2. Blacklist the current access token

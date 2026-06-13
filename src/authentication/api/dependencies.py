@@ -16,6 +16,9 @@ from src.authentication.core.domain.exceptions import (
 # --- Security dependencies ---
 
 import hmac
+import hashlib
+from itsdangerous import URLSafeSerializer
+from src.shared.config import app_settings
 
 async def verify_csrf(request: Request):
     """
@@ -24,12 +27,27 @@ async def verify_csrf(request: Request):
     """
     csrf_cookie = request.cookies.get("csrf_token")
     csrf_header = request.headers.get("X-CSRF")
+    refresh_token = request.cookies.get("refresh_token")
+    
     if not csrf_cookie or not csrf_header:
         raise CSRFValidationException("Missing CSRF token in cookie or header")
         
     # Prevent timing attacks during comparison
     if not hmac.compare_digest(csrf_cookie, csrf_header):
         raise CSRFValidationException("Invalid CSRF token")
+        
+    if not refresh_token:
+        raise CSRFValidationException("Missing refresh token for CSRF binding")
+
+    csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
+    refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    
+    try:
+        bound_hash = csrf_signer.loads(csrf_cookie)
+        if not hmac.compare_digest(bound_hash, refresh_token_hash):
+            raise CSRFValidationException("CSRF token is not bound to the current session")
+    except Exception:
+        raise CSRFValidationException("Invalid or corrupted CSRF token")
 
 
 def get_access_token_adapter() -> AccessTokenPort:

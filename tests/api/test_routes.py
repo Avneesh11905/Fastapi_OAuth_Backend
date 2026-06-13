@@ -1,5 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
+
+
 from src import app
 from src.authentication.api import usecase_dependencies as deps
 from src.authentication.api.dependencies import get_current_user
@@ -9,6 +11,15 @@ from src.shared.infrastructure.sql.connection import get_db
 from src.authentication.core.domain.user import UserIdentity
 from unittest.mock import AsyncMock, patch
 from src.shared.config import rate_limit_settings
+import hashlib
+from itsdangerous import URLSafeSerializer
+from src.shared.config import app_settings
+
+def _get_valid_csrf(refresh_token: str) -> str:
+    csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
+    refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    return csrf_signer.dumps(refresh_token_hash)
+
 
 limiter.enabled = False
 rate_limit_settings.LOGIN_RATE_LIMIT = "1000/minute"
@@ -143,10 +154,10 @@ def test_execute_password_reset(test_client):
 
 def test_logout(test_client):
     test_client.cookies.set("refresh_token", "mock_refresh_token")
-    test_client.cookies.set("csrf_token", "1")
+    test_client.cookies.set("csrf_token", _get_valid_csrf("mock_refresh_token"))
     response = test_client.post(
         "/auth/logout",
-        headers={"X-CSRF": "1"},
+        headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")},
         follow_redirects=False
     )
     assert response.status_code == 200
@@ -168,10 +179,10 @@ def test_oauth_callback(test_client):
 
 def test_refresh_token(test_client):
     test_client.cookies.set("refresh_token", "mock_refresh_token")
-    test_client.cookies.set("csrf_token", "1")
+    test_client.cookies.set("csrf_token", _get_valid_csrf("mock_refresh_token"))
     response = test_client.post(
         "/auth/refresh", 
-        headers={"X-CSRF": "1"}
+        headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")}
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -191,27 +202,27 @@ def test_get_profile(test_client):
     assert response.json()["name"] == "Test"
 
 def test_update_profile(test_client):
-    test_client.cookies.set("csrf_token", "1")
+    test_client.cookies.set("csrf_token", _get_valid_csrf("mock_refresh_token"))
     response = test_client.patch(
         "/users/me",
         json={"name": "New Test"},
-        headers={"X-CSRF": "1"}
+        headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")}
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Test"
 
 def test_update_profile_receive_updates(test_client):
-    test_client.cookies.set("csrf_token", "1")
+    test_client.cookies.set("csrf_token", _get_valid_csrf("mock_refresh_token"))
     response = test_client.patch(
         "/users/me",
         json={"receive_updates": True},
-        headers={"X-CSRF": "1"}
+        headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")}
     )
     assert response.status_code == 200
 
 def test_delete_me(test_client):
-    test_client.cookies.set("csrf_token", "1")
-    response = test_client.delete("/users/me", headers={"X-CSRF": "1"})
+    test_client.cookies.set("csrf_token", _get_valid_csrf("mock_refresh_token"))
+    response = test_client.delete("/users/me", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
     assert response.status_code == 204
 
 def test_rate_limiting(test_client):
@@ -253,21 +264,21 @@ def test_authorization_dependencies(test_client):
     
     # 1. Test role missing
     test_client.app.dependency_overrides[get_jwt_payload] = lambda: {"roles": ["user"], "sub": "123"}
-    resp = test_client.get("/test/admin-only", headers={"X-CSRF": "1"})
+    resp = test_client.get("/test/admin-only", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
     assert resp.status_code == 403
     
     # 2. Test role present
     test_client.app.dependency_overrides[get_jwt_payload] = lambda: {"roles": ["user", "admin"], "sub": "123"}
-    resp = test_client.get("/test/admin-only", headers={"X-CSRF": "1"})
+    resp = test_client.get("/test/admin-only", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
     assert resp.status_code == 200
     
     # 3. Test permission missing (default deny)
     # The default CustomAuthorizationAdapter returns False
-    resp = test_client.get("/test/write-doc", headers={"X-CSRF": "1"})
+    resp = test_client.get("/test/write-doc", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
     assert resp.status_code == 403
     
     # 4. Test permission present
     with patch.object(custom_claims_provider, "has_permission", new_callable=AsyncMock, return_value=True):
-        resp = test_client.get("/test/write-doc", headers={"X-CSRF": "1"})
+        resp = test_client.get("/test/write-doc", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
         assert resp.status_code == 200
 

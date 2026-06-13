@@ -3,8 +3,7 @@ Exposes HTTP endpoints for managing user sessions (devices).
 """
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.core.usecases import ListSessionsUseCase, RevokeSessionUseCase
 from src.authentication.api.usecase_dependencies import get_list_sessions_usecase, get_revoke_session_usecase
 from src.authentication.api.dependencies import get_current_user
@@ -21,7 +20,7 @@ router = APIRouter()
 async def list_sessions(
     request: Request,
     user: Annotated[UserIdentity, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[ListSessionsUseCase, Depends(get_list_sessions_usecase)]
 ):
     """
@@ -39,7 +38,7 @@ async def list_sessions(
     A list of session metadata objects.
     """
     current_token = request.cookies.get("refresh_token")
-    sessions = await usecase.execute(db, user.id, current_token)
+    sessions = await usecase.execute(uow, user.id, current_token)
     return sessions
 
 @router.delete("/sessions/{family_id}", status_code=204)
@@ -48,7 +47,7 @@ async def revoke_session(
     family_id: str,
     request: Request,
     user: Annotated[UserIdentity, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RevokeSessionUseCase, Depends(get_revoke_session_usecase)]
 ):
     """
@@ -61,8 +60,8 @@ async def revoke_session(
     Raises a 404 error if the session family ID does not exist or does not belong to the user.
     """
     try:
-        await usecase.execute(db, user.id, family_id)
-        await db.commit()
+        await usecase.execute(uow, user.id, family_id)
+        pass # transaction handled by UoW
     except Exception as e:
         from src.authentication.core.domain.exceptions import SessionNotFoundException
         if isinstance(e, SessionNotFoundException):

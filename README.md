@@ -24,6 +24,7 @@ You can safely drop this into your new projects, easily swap out infrastructure 
 - [1. 🏗️ Architecture Overview](#1-️-architecture-overview)
   - [1.1 The Domains](#11-the-domains)
   - [1.2 Inside Each Domain (Hexagonal Layers)](#12-inside-each-domain-hexagonal-layers)
+  - [1.3 Transaction Management (Unit of Work)](#13-transaction-management-unit-of-work)
 - [2. 🚀 Getting Started](#2--getting-started)
   - [2.1 Prerequisites](#21-prerequisites)
   - [2.2 Setup Instructions](#22-setup-instructions)
@@ -93,6 +94,12 @@ Each domain (except `shared`) is divided into distinct, decoupled layers:
 
 > [!TIP]
 > **Dependency Injection:** A centralized Composition Root (`api/container.py` inside each domain) instantiates all Adapters. This is bridged with FastAPI's native DI system using `typing.Annotated`, allowing routes to depend cleanly on use cases.
+
+### 1.3 Transaction Management (Unit of Work)
+This project enforces the **Unit of Work (UoW)** pattern to manage database transactions cleanly:
+- Routes inject the `SQLAlchemyUnitOfWork` and wrap use case execution in an `async with uow:` block.
+- Repositories **never** call `commit()` directly; they only perform data manipulation and `flush()`.
+- The UoW automatically commits the transaction at the end of the block if successful, or rolls back if an exception occurs, ensuring atomicity across multiple repository operations.
 
 ---
 

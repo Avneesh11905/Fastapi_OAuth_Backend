@@ -5,8 +5,7 @@ Parses incoming JSON payloads, validates the data, and triggers the `RegisterLoc
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.usecase_dependencies import get_register_local_usecase, get_login_local_usecase, get_change_password_usecase
 from src.authentication.core.usecases import RegisterLocalUserUseCase, LoginLocalUserUseCase, ChangePasswordUseCase
 from src.authentication.api.dependencies import get_current_user, verify_csrf
@@ -26,7 +25,7 @@ router = APIRouter()
 async def register(
     request: Request,
     req: RegisterRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RegisterLocalUserUseCase, Depends(get_register_local_usecase)]
 ):
     """
@@ -40,8 +39,8 @@ async def register(
     **Returns:**
     A success message instructing the user to check their email.
     """
-    await usecase.execute(db, req.email, req.password, req.name)
-    await db.commit()
+    await usecase.execute(uow, req.email, req.password, req.name)
+    pass # transaction handled by UoW
     return MessageResponse(message="Successfully registered! Please check your email for the 6-digit OTP code.")
 
 @router.post("/login/local", response_model=MessageResponse)
@@ -50,7 +49,7 @@ async def login_local(
     request: Request,
     req: LoginRequest,
     response: Response,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[LoginLocalUserUseCase, Depends(get_login_local_usecase)]
 ):
     """
@@ -63,8 +62,8 @@ async def login_local(
     **Note:** The user must have verified their email address before they can log in.
     """
     client_meta = extract_client_metadata(request)
-    user, refresh_token = await usecase.execute(db, req.email, req.password, client_meta=client_meta)
-    await db.commit()
+    user, refresh_token = await usecase.execute(uow, req.email, req.password, client_meta=client_meta)
+    pass # transaction handled by UoW
     return build_auth_response(refresh_token, request=request)
 
 @router.patch("/password", response_model=MessageResponse, dependencies=[Depends(verify_csrf)])
@@ -73,7 +72,7 @@ async def change_password(
     request: Request,
     req: ChangePasswordRequest,
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[ChangePasswordUseCase, Depends(get_change_password_usecase)]
 ):
     """
@@ -85,6 +84,6 @@ async def change_password(
     **Returns:**
     A success message.
     """
-    await usecase.execute(db, current_user.id, req.current_password, req.new_password)
-    await db.commit()
+    await usecase.execute(uow, current_user.id, req.current_password, req.new_password)
+    pass # transaction handled by UoW
     return MessageResponse(message="Password updated successfully")

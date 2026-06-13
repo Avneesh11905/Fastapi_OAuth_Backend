@@ -7,15 +7,13 @@ from fastapi import Request
 from src.shared.config import token_settings, url_settings, cookie_settings
 from src.authentication.core.domain.session import ClientMetadata
 
-import secrets
+import hashlib
+from itsdangerous import URLSafeSerializer
+from src.shared.config import app_settings
 
 def extract_client_metadata(request: Request) -> ClientMetadata:
     """Extracts IP address and User-Agent from the incoming request."""
-    ip = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip")
-    if ip:
-        ip = ip.split(",")[0].strip()
-    else:
-        ip = request.client.host if request.client else None
+    ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
     return ClientMetadata(ip_address=ip, user_agent=ua)
 
@@ -33,11 +31,9 @@ def set_refresh_token_cookie(response: Response, refresh_token: str, request: Re
     )
     
     # Set the CSRF double-submit cookie (MUST be readable by JS)
-    csrf_token = None
-    if request:
-        csrf_token = request.cookies.get("csrf_token")
-    if not csrf_token:
-        csrf_token = secrets.token_urlsafe(32)
+    csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
+    refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    csrf_token = csrf_signer.dumps(refresh_token_hash)
     response.set_cookie(
         key="csrf_token",
         value=csrf_token,

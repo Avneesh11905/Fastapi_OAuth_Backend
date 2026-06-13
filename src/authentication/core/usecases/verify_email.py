@@ -7,7 +7,7 @@ from src.authentication.core.ports import UserRepositoryPort
 from src.shared.core.ports.logger import LoggerPort
 from src.shared.core.ports.cache import CachePort
 from src.authentication.core.ports.email_sender import EmailSenderPort
-from typing import Generic, TypeVar
+from typing import Protocol, Any, Generic, TypeVar
 import hashlib
 import time
 from src.authentication.core.utils import verify_otp_hash
@@ -15,8 +15,10 @@ from src.authentication.core.ports import RefreshTokenRepositoryPort
 from src.authentication.core.domain import UserIdentity
 from src.authentication.core.domain.session import ClientMetadata
 
-SessionType = TypeVar("SessionType")
-class VerifyEmailUseCase(Generic[SessionType]):
+class UoWPort(Protocol):
+    session: Any
+UoWType = TypeVar("UoWType", bound=UoWPort)
+class VerifyEmailUseCase(Generic[UoWType]):
     """Handles verification of the 6-digit OTP for email verification."""
     
     def __init__(
@@ -29,7 +31,7 @@ class VerifyEmailUseCase(Generic[SessionType]):
         self._email_sender = email_sender
         self._refresh_repo = refresh_repo
         
-    async def execute(self, session: SessionType, email: str, otp: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
+    async def execute(self, uow: UoWType, email: str, otp: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
         """
         Verifies the OTP for the given email using the Redis-First flow.
         If valid, saves the user to the DB and sends welcome email.
@@ -38,7 +40,7 @@ class VerifyEmailUseCase(Generic[SessionType]):
         from src.authentication.core.domain.exceptions import InvalidCredentialsException, InvalidTokenException
         
         # 1. Check if user is in DB
-        user = await self._user_repo.find_by_email(session, email)
+        user = await self._user_repo.find_by_email(uow.session, email)
         if not user:
             await self._logger.warning(f"Verification failed: User {email} not found")
             raise InvalidCredentialsException(detail="User not found")
@@ -84,14 +86,14 @@ class VerifyEmailUseCase(Generic[SessionType]):
             raise InvalidTokenException(detail="Invalid OTP")
             
         # 5. Success! Mark the user as verified in PostgreSQL
-        await self._user_repo.verify_user_email(session, str(user.id))
+        await self._user_repo.verify_user_email(uow.session, str(user.id))
         
         pending_password_hash = payload.get("pending_password_hash")
         if pending_password_hash:
-            await self._user_repo.update_password(session, user.id, pending_password_hash)
+            await self._user_repo.update_password(uow.session, user.id, pending_password_hash)
         
         # Issue a refresh token to auto-login
-        token = await self._refresh_repo.create(session, user.id, client_meta=client_meta)
+        token = await self._refresh_repo.create(uow.session, user.id, client_meta=client_meta)
         
         # 6. Clean up Redis
         await self._cache.delete_key(redis_key)

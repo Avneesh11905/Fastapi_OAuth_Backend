@@ -9,7 +9,7 @@ from src.authentication.core.ports import PasswordHasherPort
 from src.shared.core.ports.logger import LoggerPort
 from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.shared.core.ports.cache import CachePort
-from typing import Generic, TypeVar
+from typing import Protocol, Any, Generic, TypeVar
 import hashlib
 import time
 import secrets
@@ -17,8 +17,10 @@ from src.shared.config import token_settings
 from src.authentication.core.utils import hash_otp
 
 
-SessionType = TypeVar("SessionType")
-class RegisterLocalUserUseCase(Generic[SessionType]):
+class UoWPort(Protocol):
+    session: Any
+UoWType = TypeVar("UoWType", bound=UoWPort)
+class RegisterLocalUserUseCase(Generic[UoWType]):
     """Handles user registration with email and password."""
 
     def __init__(
@@ -33,14 +35,14 @@ class RegisterLocalUserUseCase(Generic[SessionType]):
         self._email_sender = email_sender
         self._cache = cache
 
-    async def execute(self, session: SessionType, email: str, password: str, name: str | None) -> None:
+    async def execute(self, uow: UoWType, email: str, password: str, name: str | None) -> None:
         """
         Register a new user and trigger email verification.
         Saves the pending registration data to Redis (Redis-First Flow).
         Raises ValueError if email already exists in DB.
         """
         # 1. Check if email exists in PostgreSQL
-        existing = await self._user_repo.find_by_email(session, email)
+        existing = await self._user_repo.find_by_email(uow.session, email)
         if existing and existing.is_verified:
             await self._logger.warning(f"Registration failed: Email {email} already registered and verified")
             from src.authentication.core.domain import EmailAlreadyRegisteredException
@@ -52,7 +54,7 @@ class RegisterLocalUserUseCase(Generic[SessionType]):
         if not existing:
             # 3a. Save pending user to PostgreSQL directly, but without a password.
             await self._user_repo.create_user_with_password(
-                session=session, email=email, name=name, password_hash=None, is_verified=False
+                session=uow.session, email=email, name=name, password_hash=None, is_verified=False
             )
         else:
             # 3b. DO NOT update password for unverified user here to prevent pre-hijacking.

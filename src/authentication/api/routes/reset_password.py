@@ -4,9 +4,8 @@ Translates HTTP requests into the corresponding `RequestPasswordResetUseCase` an
 """
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.infrastructure.sql.connection import get_db, AsyncSessionLocal
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.usecase_dependencies import get_request_password_reset_usecase, get_execute_password_reset_usecase
 from src.authentication.core.usecases import RequestPasswordResetUseCase, ExecutePasswordResetUseCase
 from src.shared.api.dependencies import limiter
@@ -18,9 +17,8 @@ router = APIRouter(prefix="/password")
 
 
 async def _execute_forgot_password_in_background(usecase: RequestPasswordResetUseCase, email: str):
-    async with AsyncSessionLocal() as db:
-        await usecase.execute(db, email)
-        await db.commit()
+    async with SQLAlchemyUnitOfWork() as uow:
+        await usecase.execute(uow, email)
 
 @router.post("/forgot", response_model=MessageResponse)
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
@@ -28,7 +26,7 @@ async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RequestPasswordResetUseCase, Depends(get_request_password_reset_usecase)]
 ):
     """
@@ -54,7 +52,7 @@ async def forgot_password(
 async def reset_password(
     request: Request,
     body: ResetPasswordRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[ExecutePasswordResetUseCase, Depends(get_execute_password_reset_usecase)]
 ):
     """
@@ -67,9 +65,9 @@ async def reset_password(
     A success message upon successful password reset.
     Raises a 400 error if the token is invalid or expired.
     """
-    success = await usecase.execute(db, body.token, body.new_password)
+    success = await usecase.execute(uow, body.token, body.new_password)
     if not success:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
         
-    await db.commit()
+    pass # transaction handled by UoW
     return MessageResponse(message="Password successfully reset")

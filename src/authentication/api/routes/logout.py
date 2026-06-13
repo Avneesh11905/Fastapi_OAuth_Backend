@@ -5,13 +5,12 @@ Extracts the active tokens from cookies and headers and delegates to the `Logout
 from typing import Annotated
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.config import rate_limit_settings
 from src.authentication.api.usecase_dependencies import get_logout_usecase
 from src.authentication.core.usecases import LogoutUseCase
 from src.authentication.api.dependencies import verify_csrf
 from src.shared.api.dependencies import limiter
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.shared.api.utils import delete_refresh_token_cookie
 
 router = APIRouter()
@@ -21,7 +20,7 @@ router = APIRouter()
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def logout(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[LogoutUseCase, Depends(get_logout_usecase)]
 ):
     """
@@ -44,8 +43,8 @@ async def logout(
     if auth_header and auth_header.startswith("Bearer "):
         access_token = auth_header.removeprefix("Bearer ")
         
-    await usecase.execute(db, refresh_token, access_token)
-    await db.commit()
+    await usecase.execute(uow, refresh_token, access_token)
+    pass # transaction handled by UoW
 
     response = JSONResponse(content={"message": "Logged out"})
     delete_refresh_token_cookie(response)

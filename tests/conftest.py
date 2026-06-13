@@ -160,5 +160,7 @@ def logger_port():
 @pytest.fixture
 def mock_session():
     class DummySession:
-        pass
-    return DummySession()
+        session: 'DummySession'
+    dummy = DummySession()
+    dummy.session = DummySession()
+    return dummy

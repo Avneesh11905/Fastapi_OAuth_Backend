@@ -4,8 +4,7 @@ Checks connectivity to the PostgreSQL database and Redis cache to ensure the app
 """
 from fastapi import APIRouter, Depends
 from typing import Annotated
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
 from src.shared.config import database_settings
@@ -16,10 +15,10 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check(db: Annotated[AsyncSession, Depends(get_db)]):
+async def health_check(uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]):
     # Check DB
     try:
-        await db.execute(text("SELECT 1"))
+        await uow.session.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception:
         db_status = "error"

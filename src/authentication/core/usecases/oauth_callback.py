@@ -5,7 +5,7 @@ It implements an "Account Linking" strategy:
 2. Email match: If the email matches an existing local/OAuth user, link this new provider to their account to avoid duplicate accounts.
 3. Fallback: Create a brand new user.
 """
-from typing import TYPE_CHECKING
+from typing import Protocol, Any, TYPE_CHECKING
 from src.authentication.core.domain import UserIdentity
 from src.authentication.core.domain.user import OAuthUserInfo
 
@@ -17,8 +17,10 @@ from typing import Generic, TypeVar
 from src.authentication.core.domain.session import ClientMetadata
 
 
-SessionType = TypeVar("SessionType")
-class OAuthCallbackUseCase(Generic[SessionType]):
+class UoWPort(Protocol):
+    session: Any
+UoWType = TypeVar("UoWType", bound=UoWPort)
+class OAuthCallbackUseCase(Generic[UoWType]):
     """
     Orchestrates the OAuth callback flow:
     1. Upsert user with account-linking (find by provider, email, or create new).
@@ -37,7 +39,7 @@ class OAuthCallbackUseCase(Generic[SessionType]):
         self._refresh_repo = refresh_repo
         self._email_sender = email_sender
 
-    async def execute(self, session: SessionType, user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
+    async def execute(self, uow: UoWType, user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
         """
         Process an OAuth callback.
 
@@ -55,18 +57,18 @@ class OAuthCallbackUseCase(Generic[SessionType]):
         picture = user_info.picture
 
         # Step 1: Check if this exact provider+sub already exists
-        user = await self._user_repo.find_by_oauth(session, provider, oauth_sub)
+        user = await self._user_repo.find_by_oauth(uow.session, provider, oauth_sub)
         if user:
             if user.deleted_at is not None:
-                await self._user_repo.undelete_user(session, user.id)
+                await self._user_repo.undelete_user(uow.session, user.id)
                 user.deleted_at = None
                 
             # We explicitly DO NOT update the name/picture here so we don't overwrite user preferences
-            refresh_token = await self._refresh_repo.create(session, user.id, auth_provider=provider, client_meta=client_meta)
+            refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
             return user, refresh_token
 
         # Step 2: Check if a user with this email already exists (account linking)
-        user = await self._user_repo.find_by_email(session, email)
+        user = await self._user_repo.find_by_email(uow.session, email)
         if user:
             # S3 Fix: Only link if the existing local account is verified.
             # If it's unverified, we shouldn't implicitly trust the email match,
@@ -81,22 +83,22 @@ class OAuthCallbackUseCase(Generic[SessionType]):
             # To prevent hijack, we shouldn't let them log in locally if they were unverified.
             # We will just overwrite their password hash to something unusable.
             if not user.is_verified:
-                await self._user_repo.disable_local_login(session, user.id)
-                await self._user_repo.verify_user_email(session, user.id)
+                await self._user_repo.disable_local_login(uow.session, user.id)
+                await self._user_repo.verify_user_email(uow.session, user.id)
 
             if user.deleted_at is not None:
-                await self._user_repo.undelete_user(session, user.id)
+                await self._user_repo.undelete_user(uow.session, user.id)
                 user.deleted_at = None
 
-            await self._user_repo.link_oauth_account(session, user.id, provider, oauth_sub)
-            refresh_token = await self._refresh_repo.create(session, user.id, auth_provider=provider, client_meta=client_meta)
+            await self._user_repo.link_oauth_account(uow.session, user.id, provider, oauth_sub)
+            refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
             return user, refresh_token
 
         # Step 3: Brand new user
         user = await self._user_repo.create_user_with_oauth(
-            session, email, name, picture, provider, oauth_sub,
+            uow.session, email, name, picture, provider, oauth_sub,
         )
-        refresh_token = await self._refresh_repo.create(session, user.id, auth_provider=provider, client_meta=client_meta)
+        refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
         
         # Fire-and-forget email sending
         await self._email_sender.send_welcome_email(user.email, user.name)

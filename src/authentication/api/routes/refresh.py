@@ -6,9 +6,8 @@ triggers the `RefreshSessionUseCase`, and returns a fresh short-lived access tok
 from typing import Annotated
 from fastapi import APIRouter, Request, Response, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.config import rate_limit_settings
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.usecase_dependencies import get_refresh_session_usecase
 from src.authentication.core.usecases import RefreshSessionUseCase
 from src.authentication.api.dependencies import verify_csrf
@@ -26,7 +25,7 @@ router = APIRouter()
 @limiter.limit(rate_limit_settings.REFRESH_RATE_LIMIT)
 async def refresh(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RefreshSessionUseCase, Depends(get_refresh_session_usecase)]
 ):
     """
@@ -41,8 +40,8 @@ async def refresh(
         return Response(status_code=204)
 
     client_meta = extract_client_metadata(request)
-    access_token, new_refresh_token = await usecase.execute(db, refresh_token, client_meta=client_meta)
-    await db.commit()
+    access_token, new_refresh_token = await usecase.execute(uow, refresh_token, client_meta=client_meta)
+    pass # transaction handled by UoW
     
     if not access_token:
         response = Response(status_code=401)

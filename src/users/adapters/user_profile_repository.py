@@ -45,7 +45,7 @@ class SQLUserProfileRepository:
         user.name = name
         user.picture = picture
         user.receive_updates = receive_updates
-        await session.commit()
+        await session.flush()
         return self._to_profile(user)
 
     async def delete_user(self, session: AsyncSession, user_id: str) -> None:
@@ -55,4 +55,4 @@ class SQLUserProfileRepository:
         user = result.scalar_one_or_none()
         if user:
             user.deleted_at = datetime.now(timezone.utc)
-            await session.commit()
+            await session.flush()

@@ -7,21 +7,23 @@ It performs two distinct actions:
 """
 import jwt
 from datetime import datetime, timezone
-from typing import Generic, TypeVar
+from typing import Protocol, Any, Generic, TypeVar
 from src.authentication.core.ports import RefreshTokenRepositoryPort
 from src.shared.core.ports.cache import CachePort
 
-SessionType = TypeVar("SessionType")
-class LogoutUseCase(Generic[SessionType]):
+class UoWPort(Protocol):
+    session: Any
+UoWType = TypeVar("UoWType", bound=UoWPort)
+class LogoutUseCase(Generic[UoWType]):
     """Handles logging out a user by revoking the refresh token and blacklisting the access token."""
     
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort, cache: CachePort):
         self._refresh_repo = refresh_repo
         self._cache = cache
         
-    async def execute(self, session: SessionType, refresh_token: str | None, access_token: str | None) -> None:
+    async def execute(self, uow: UoWType, refresh_token: str | None, access_token: str | None) -> None:
         if refresh_token:
-            await self._refresh_repo.revoke(session, refresh_token)
+            await self._refresh_repo.revoke(uow.session, refresh_token)
             
         if access_token:
             try:

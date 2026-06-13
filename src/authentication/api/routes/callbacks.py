@@ -3,10 +3,9 @@ Exposes HTTP endpoints for OAuth provider redirects.
 When Google/GitHub sends the user back, this route captures the authorization code,
 exchanges it for user details, and triggers the `OAuthCallbackUseCase` to establish a session.
 """
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 from fastapi import APIRouter, Request, Depends
-from src.shared.infrastructure.sql.connection import get_db
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.infrastructure.oauth import PROVIDERS, PARSERS
 from src.authentication.api.usecase_dependencies import get_oauth_callback_usecase
 from src.authentication.core.usecases import OAuthCallbackUseCase
@@ -23,7 +22,7 @@ router = APIRouter()
 async def oauth_callback(
     provider: str,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[OAuthCallbackUseCase, Depends(get_oauth_callback_usecase)]
 ):
     """Handles the OAuth callback from the provider."""
@@ -45,7 +44,7 @@ async def oauth_callback(
         raise OAuthFailedException(f"Failed to authenticate with {provider}: {str(e)}")
 
     client_meta = extract_client_metadata(request)
-    user, refresh_token = await usecase.execute(db, user_info, client_meta=client_meta)
-    await db.commit()
+    user, refresh_token = await usecase.execute(uow, user_info, client_meta=client_meta)
+    pass # transaction handled by UoW
     
     return build_auth_redirect(refresh_token, request)
