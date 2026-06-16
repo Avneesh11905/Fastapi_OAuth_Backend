@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+from uuid import uuid4, UUID
 from src.authentication.core.domain import UserIdentity
 
 class MockUserRepository:
@@ -24,8 +24,10 @@ class MockUserRepository:
         self, session, email: str, name: str | None, picture: str | None,
         provider: str, oauth_sub: str,
     ) -> UserIdentity:
-        user_id = str(uuid4())
-        user = UserIdentity(id=user_id, email=email, name=name, picture=picture, is_verified=True)
+        user_id = uuid4()
+        from pydantic import AnyHttpUrl
+        from typing import cast
+        user = UserIdentity(id=user_id, email=email, name=name, picture=cast(AnyHttpUrl, picture) if picture else None, is_verified=True)
         self.users[user_id] = user
         self.oauth_links.append((user_id, provider, oauth_sub))
         return user
@@ -36,33 +38,34 @@ class MockUserRepository:
         self.oauth_links.append((user_id, provider, oauth_sub))
 
     async def create_user_with_password(
-        self, session, email: str, name: str | None, password_hash: str, is_verified: bool = False
+        self, session, email: str, name: str | None, password_hash: str | None, is_verified: bool = False
     ) -> UserIdentity:
-        user_id = str(uuid4())
+        user_id = uuid4()
         user = UserIdentity(id=user_id, email=email, name=name, is_verified=is_verified)
         self.users[user_id] = user
-        self.passwords[user_id] = password_hash
+        if password_hash is not None:
+            self.passwords[user_id] = password_hash
         return user
 
-    async def find_password_hash(self, session, user_id: str) -> str | None:
+    async def find_password_hash(self, session, user_id: UUID) -> str | None:
         return self.passwords.get(user_id)
 
-    async def disable_local_login(self, session, user_id: str) -> None:
+    async def disable_local_login(self, session, user_id: UUID) -> None:
         if user_id in self.passwords:
             del self.passwords[user_id]
 
-    async def verify_user_email(self, session, user_id: str) -> None:
+    async def verify_user_email(self, session, user_id: UUID, name: str | None = None) -> None:
         user = self.users[user_id]
         updated_user = UserIdentity(
             id=user.id,
             email=user.email,
             is_verified=True,
-            name=user.name,
+            name=name if name is not None else user.name,
             picture=user.picture
         )
         self.users[user_id] = updated_user
 
-    async def update_password(self, session, user_id: str, new_password_hash: str) -> None:
+    async def update_password(self, session, user_id: UUID, new_password_hash: str) -> None:
         self.passwords[user_id] = new_password_hash
 
 class MockEmailSender:

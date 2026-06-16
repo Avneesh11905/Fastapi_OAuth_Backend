@@ -2,18 +2,22 @@ import pytest
 from src.authentication.core.usecases import OAuthCallbackUseCase
 from src.authentication.core.domain.user import OAuthUserInfo
 from unittest.mock import AsyncMock
+from pydantic import AnyHttpUrl
+from typing import cast
 
 @pytest.mark.asyncio
 async def test_brand_new_user_signup(user_repo, refresh_token_port, mock_session):
     email_sender = AsyncMock()
     usecase: OAuthCallbackUseCase = OAuthCallbackUseCase(user_repo=user_repo, refresh_repo=refresh_token_port, email_sender=email_sender)
     
+    from pydantic import AnyHttpUrl
+    from typing import cast
     user_info = OAuthUserInfo(
         provider="google",
         sub="google_123",
         email="test@example.com",
         name="Test User",
-        picture="http://example.com/pic.png"
+        picture=cast(AnyHttpUrl, "https://example.com/pic.png")
     )
 
     user, token = await usecase.execute(mock_session, user_info)
@@ -44,7 +48,7 @@ async def test_existing_user_exact_oauth_match(user_repo, refresh_token_port, mo
         sub="google_123",
         email="test@example.com",
         name="New Name",
-        picture="http://example.com/newpic.png"
+        picture=cast(AnyHttpUrl, "http://example.com/newpic.png")
     )
 
     user, token = await usecase.execute(mock_session, user_info)
@@ -60,7 +64,7 @@ async def test_existing_user_exact_oauth_match(user_repo, refresh_token_port, mo
 async def test_account_linking_different_provider_same_email(user_repo, refresh_token_port, mock_session):
     # Pre-seed the DB with Google
     original_user = await user_repo.create_user_with_oauth(
-        mock_session, "test@example.com", "Test User", "pic.png", "google", "google_123"
+        mock_session, "test@example.com", "Test User", "https://example.com/pic.png", "google", "google_123"
     )
 
     email_sender = AsyncMock()
@@ -72,7 +76,7 @@ async def test_account_linking_different_provider_same_email(user_repo, refresh_
         sub="github_456",
         email="test@example.com",
         name=None, # GitHub doesn't provide a name
-        picture="github.png"
+        picture=cast(AnyHttpUrl, "https://example.com/github.png")
     )
 
     user, token = await usecase.execute(mock_session, user_info)

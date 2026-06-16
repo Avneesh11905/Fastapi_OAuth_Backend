@@ -3,7 +3,7 @@ Exposes HTTP endpoints for the password reset flow (both requesting a reset and 
 Translates HTTP requests into the corresponding `RequestPasswordResetUseCase` and `ExecutePasswordResetUseCase`.
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.authentication.api.usecase_dependencies import get_request_password_reset_usecase, get_execute_password_reset_usecase
@@ -16,16 +16,18 @@ router = APIRouter(prefix="/password")
 
 
 
-async def _execute_forgot_password_in_background(usecase: RequestPasswordResetUseCase, email: str):
-    async with SQLAlchemyUnitOfWork() as uow:
-        await usecase.execute(uow, email)
+async def _execute_forgot_password_in_background(usecase: RequestPasswordResetUseCase, email: str) -> None:
+    try:
+        async with SQLAlchemyUnitOfWork() as uow:
+            await usecase.execute(uow, email)
+    except Exception:
+        pass  # errors are logged inside the usecase
 
 @router.post("/forgot", response_model=MessageResponse)
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
     uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[RequestPasswordResetUseCase, Depends(get_request_password_reset_usecase)]
 ):
@@ -40,8 +42,10 @@ async def forgot_password(
     **Returns:**
     A generic success message.
     """
-    # We use a background task so the API responds instantly and prevents timing attacks
-    background_tasks.add_task(_execute_forgot_password_in_background, usecase, body.email)
+    # We use TaskRunner so the API responds instantly and stays consistent with
+    # all other background operations in this codebase (switchable to Celery)
+    from src.authentication.container import get_container
+    get_container().task_runner.add_task(_execute_forgot_password_in_background, usecase, body.email)
     
     # We always return 200 OK to prevent email enumeration
     return MessageResponse(message="If an account with that email exists, we sent a password reset link.")

@@ -26,7 +26,9 @@ class ExecutePasswordResetUseCase(Generic[UoWType]):
             return False
             
         hashed_password = await self.hasher.hash_password(new_password)
-        await self.user_repo.update_password(uow.session, user_id, hashed_password)
+        from uuid import UUID
+        user_id_uuid = UUID(user_id)
+        await self.user_repo.update_password(uow.session, user_id_uuid, hashed_password)
         
         # Invalidate the token
         await self.cache.delete_key(f"pwd_reset:{token}")

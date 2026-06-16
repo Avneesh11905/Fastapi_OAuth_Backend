@@ -8,11 +8,13 @@ from src.shared.infrastructure.sql.tables import User
 
 def to_identity(user: User) -> UserIdentity:
     """Map an ORM User to a pure domain UserIdentity."""
+    from pydantic import AnyHttpUrl
+    from typing import cast
     return UserIdentity(
-        id=str(user.id),
+        id=user.id,
         email=user.email,
         is_verified=user.is_verified,
         name=user.name,
-        picture=user.picture,
+        picture=cast(AnyHttpUrl, user.picture) if user.picture else None,
         deleted_at=user.deleted_at,
     )

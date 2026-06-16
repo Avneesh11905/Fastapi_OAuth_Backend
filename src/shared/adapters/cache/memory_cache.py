@@ -59,18 +59,17 @@ class MemoryCacheAdapter:
                 return item[0]
             return None
 
-    async def incr(self, key: str) -> int:
+    async def incr(self, key: str, ttl: int | None = None) -> int:
         async with self._lock:
             self._cleanup()
             item = self._store.get(key)
-            val = 0
-            expire_at = time.time() + 31536000  # 1 year default
+            val, expire_at = 0, time.time() + (ttl if ttl is not None else 31_536_000)  # 1-year "never expire" sentinel
             if item:
                 try:
                     val = int(item[0])
                 except ValueError:
                     val = 0
-                expire_at = item[1]
+                expire_at = item[1]  # preserve existing TTL on subsequent calls
             val += 1
             self._store[key] = (str(val), expire_at)
             return val

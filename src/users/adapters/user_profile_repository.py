@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from src.users.core.domain import UserProfile
 from src.shared.infrastructure.sql.tables import User
+from uuid import UUID
 
 class SQLUserProfileRepository:
     """Implements UserProfileRepositoryPort using SQLAlchemy."""
@@ -27,7 +28,7 @@ class SQLUserProfileRepository:
             login_methods=methods
         )
 
-    async def get_profile(self, session: AsyncSession, user_id: str) -> UserProfile | None:
+    async def get_profile(self, session: AsyncSession, user_id: UUID) -> UserProfile | None:
         result = await session.execute(select(User).options(selectinload(User.oauth_accounts)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
@@ -35,20 +36,23 @@ class SQLUserProfileRepository:
         return self._to_profile(user)
 
     async def update_profile(
-        self, session: AsyncSession, user_id: str, name: str | None, picture: str | None, receive_updates: bool
+        self, session: AsyncSession, user_id: UUID, name: str | None = None, picture: str | None = None, receive_updates: bool | None = None
     ) -> UserProfile:
         result = await session.execute(select(User).options(selectinload(User.oauth_accounts)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             from src.users.core.domain.exceptions import UserNotFoundException
             raise UserNotFoundException()
-        user.name = name
-        user.picture = picture
-        user.receive_updates = receive_updates
+        if name is not None:
+            user.name = name
+        if picture is not None:
+            user.picture = picture
+        if receive_updates is not None:
+            user.receive_updates = receive_updates
         await session.flush()
         return self._to_profile(user)
 
-    async def delete_user(self, session: AsyncSession, user_id: str) -> None:
+    async def delete_user(self, session: AsyncSession, user_id: UUID) -> None:
         """Soft delete a user."""
         from datetime import datetime, timezone
         result = await session.execute(select(User).where(User.id == user_id))

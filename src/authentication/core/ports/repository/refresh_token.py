@@ -13,7 +13,7 @@ SessionType = TypeVar("SessionType", contravariant=True)
 class RefreshTokenRepositoryPort(Protocol[SessionType]):
     """Interface for managing long-lived refresh tokens."""
 
-    async def validate(self, session: SessionType, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, str | None]:
+    async def validate(self, session: SessionType, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, UUID | None]:
         """
         Validate a refresh token.
         Returns (user_identity, new_token, family_id).
@@ -21,11 +21,11 @@ class RefreshTokenRepositoryPort(Protocol[SessionType]):
         """
         ...
         
-    async def get_active_sessions(self, session: SessionType, user_id: str, current_token: str | None = None) -> list[ActiveSession]:
+    async def get_active_sessions(self, session: SessionType, user_id: UUID, current_token: str | None = None) -> list[ActiveSession]:
         """Returns all active token families (sessions) for a user."""
         ...
 
-    async def create(self, session: SessionType, user_id: str, family_id: UUID | None = None, auth_provider: str = "local", client_meta: ClientMetadata | None = None) -> str:
+    async def create(self, session: SessionType, user_id: UUID, family_id: UUID | None = None, auth_provider: str = "local", client_meta: ClientMetadata | None = None) -> str:
         """Create a new refresh token for the given user. Returns the raw token string."""
         ...
 
@@ -33,7 +33,7 @@ class RefreshTokenRepositoryPort(Protocol[SessionType]):
         """Revoke a refresh token and its entire rotation family."""
         ...
 
-    async def revoke_by_family(self, session: SessionType, family_id: str) -> None:
+    async def revoke_by_family(self, session: SessionType, family_id: UUID) -> None:
         """Revoke a specific token family (logout from device)."""
         ...
 

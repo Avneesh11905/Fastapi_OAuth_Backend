@@ -5,6 +5,7 @@ They contain the minimal user claims needed by the API to identify the caller wi
 """
 import jwt
 from datetime import datetime, timezone
+from uuid import UUID
 from uuid6 import uuid7
 from src.authentication.core.domain import UserIdentity
 
@@ -23,10 +24,10 @@ class JWTAccessTokenAdapter:
         expires = now + self._lifetime_seconds
         payload = {
             "jti": str(uuid7()),
-            "sub": user.id,
-            "email": user.email,
+            "sub": str(user.id),
+            "email": str(user.email),
             "name": user.name,
-            "picture": user.picture,
+            "picture": str(user.picture) if user.picture else None,
             "is_verified": user.is_verified,
             "exp": expires,
             "iat": now,
@@ -42,7 +43,7 @@ class JWTAccessTokenAdapter:
         try:
             payload = jwt.decode(token, self._public_key, algorithms=[self._algorithm])
             user = UserIdentity(
-                id=payload["sub"],
+                id=UUID(payload["sub"]),   # str → UUID at JWT boundary
                 email=payload["email"],
                 name=payload.get("name"),
                 picture=payload.get("picture"),

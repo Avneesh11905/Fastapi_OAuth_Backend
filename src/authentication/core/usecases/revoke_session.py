@@ -3,6 +3,7 @@ Revokes a specific session (device logout).
 """
 from typing import Protocol, Any, Generic, TypeVar
 from src.authentication.core.ports import RefreshTokenRepositoryPort
+from uuid import UUID
 
 class UoWPort(Protocol):
     session: Any
@@ -13,7 +14,7 @@ class RevokeSessionUseCase(Generic[UoWType]):
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort):
         self._refresh_repo = refresh_repo
 
-    async def execute(self, uow: UoWType, user_id: str, family_id: str) -> None:
+    async def execute(self, uow: UoWType, user_id: UUID, family_id: UUID) -> None:
         """
         Revokes a session by family_id.
         Verifies that the session actually belongs to the user to prevent IDOR.

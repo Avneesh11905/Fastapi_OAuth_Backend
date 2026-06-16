@@ -70,15 +70,11 @@ async def update_profile(
     The updated user profile object.
     """
     async with uow:
-        profile = await user_profile_repository.get_profile(uow.session, current_user.id)
-        if not profile:
-            raise UserNotFoundException()
-
         updated = await user_profile_repository.update_profile(uow.session,
             current_user.id,
-            name=body.name if body.name is not None else profile.name,
-            picture=body.picture if body.picture is not None else profile.picture,
-            receive_updates=body.receive_updates if body.receive_updates is not None else profile.receive_updates
+            name=body.name,
+            picture=body.picture,
+            receive_updates=body.receive_updates
         )
     await get_container().cache_adapter.delete_key(f"user_profile:{current_user.id}")
     return updated

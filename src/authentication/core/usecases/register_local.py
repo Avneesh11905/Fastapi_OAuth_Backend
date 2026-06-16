@@ -13,7 +13,7 @@ from typing import Protocol, Any, Generic, TypeVar
 import hashlib
 import time
 import secrets
-from src.shared.config import token_settings
+from src.shared.config import verification_settings
 from src.authentication.core.utils import hash_otp
 
 
@@ -62,7 +62,7 @@ class RegisterLocalUserUseCase(Generic[UoWType]):
         
         # 3. Generate 6-digit OTP and calculate 5-minute expiry
         otp = f"{secrets.randbelow(1000000):06d}"
-        otp_expires_at = int(time.time()) + token_settings.OTP_EXPIRATION_SECONDS
+        otp_expires_at = int(time.time()) + verification_settings.OTP_EXPIRATION_SECONDS
         
         # 4. Construct pending payload with HASHED OTP and the pending password
         payload = {
@@ -74,7 +74,7 @@ class RegisterLocalUserUseCase(Generic[UoWType]):
         
         # 5. Save OTP to Redis for 15 minutes (resend window)
         email_hash = hashlib.sha256(email.encode()).hexdigest()
-        await self._cache.set_dict(f"pending_reg:{email_hash}", payload, token_settings.OTP_RESEND_WINDOW_SECONDS) 
+        await self._cache.set_dict(f"pending_reg:{email_hash}", payload, verification_settings.OTP_RESEND_WINDOW_SECONDS) 
         
         # 6. Dispatch email
         await self._email_sender.send_verification_email(email, otp)

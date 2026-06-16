@@ -11,6 +11,7 @@ from src.authentication.api.schemas import SessionResponse
 from src.authentication.core.domain import UserIdentity
 from src.shared.api.dependencies import limiter
 from src.shared.config import rate_limit_settings
+from uuid import UUID
 
 
 router = APIRouter()
@@ -45,7 +46,7 @@ async def list_sessions(
 @router.delete("/sessions/{family_id}", status_code=204)
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def revoke_session(
-    family_id: str,
+    family_id: UUID,
     request: Request,
     user: Annotated[UserIdentity, Depends(get_current_user)],
     uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],

@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 from src.shared.config import rate_limit_settings
 from src.authentication.api.usecase_dependencies import get_logout_usecase
 from src.authentication.core.usecases import LogoutUseCase
-from src.authentication.api.dependencies import verify_csrf
+from src.authentication.api.dependencies import verify_csrf, get_current_user
+from src.authentication.core.domain import UserIdentity
 from src.shared.api.dependencies import limiter
 from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 from src.shared.api.utils import delete_refresh_token_cookie
@@ -20,6 +21,7 @@ router = APIRouter()
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def logout(
     request: Request,
+    user: Annotated[UserIdentity, Depends(get_current_user)],
     uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)],
     usecase: Annotated[LogoutUseCase, Depends(get_logout_usecase)]
 ):

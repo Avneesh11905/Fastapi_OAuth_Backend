@@ -3,6 +3,7 @@ Module: Schemas
 """
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from uuid import UUID
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -35,7 +36,7 @@ class MessageResponse(BaseModel):
     message: str
 
 class SessionResponse(BaseModel):
-    family_id: str
+    family_id: UUID
     ip_address: str | None
     user_agent: str | None
     created_at: datetime

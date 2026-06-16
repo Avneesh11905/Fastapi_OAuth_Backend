@@ -7,6 +7,7 @@ from src.authentication.core.domain import UserIdentity
 from src.shared.infrastructure.sql.tables import User, UserOAuthAccount, UserPassword
 from src.authentication.core.ports.repository.user import UserRepositoryPort
 from .user_utils import to_identity
+from uuid import UUID
 
 class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
     """Implements UserRepositoryPort using SQLAlchemy."""
@@ -35,7 +36,7 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
             return None
         return to_identity(user)
 
-    async def find_password_hash(self, session: AsyncSession, user_id: str) -> str | None:
+    async def find_password_hash(self, session: AsyncSession, user_id: UUID) -> str | None:
         """Look up the password hash for a given user ID."""
         result = await session.execute(select(UserPassword).where(UserPassword.user_id == user_id))
         record = result.scalar_one_or_none()
@@ -61,7 +62,7 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
         return to_identity(user)
 
     async def link_oauth_account(
-        self, session: AsyncSession, user_id: str, provider: str, oauth_sub: str,
+        self, session: AsyncSession, user_id: UUID, provider: str, oauth_sub: str,
     ) -> None:
         """Link a new OAuth provider to an existing user."""
         account = UserOAuthAccount(
@@ -87,7 +88,7 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
         await session.refresh(user)
         return to_identity(user)
 
-    async def update_password(self, session: AsyncSession, user_id: str, password_hash: str) -> None:
+    async def update_password(self, session: AsyncSession, user_id: UUID, password_hash: str) -> None:
         """Update or insert a password for a user."""
         result = await session.execute(select(UserPassword).where(UserPassword.user_id == user_id))
         record = result.scalar_one_or_none()
@@ -97,21 +98,23 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
             record = UserPassword(user_id=user_id, password_hash=password_hash)
             session.add(record)
 
-    async def disable_local_login(self, session: AsyncSession, user_id: str) -> None:
+    async def disable_local_login(self, session: AsyncSession, user_id: UUID) -> None:
         """Disable local password login by deleting the user password."""
         result = await session.execute(select(UserPassword).where(UserPassword.user_id == user_id))
         record = result.scalar_one_or_none()
         if record:
             await session.delete(record)
 
-    async def verify_user_email(self, session: AsyncSession, user_id: str) -> None:
+    async def verify_user_email(self, session: AsyncSession, user_id: UUID, name: str | None = None) -> None:
         """Mark a user as verified."""
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user:
             user.is_verified = True
+            if name:
+                user.name = name
 
-    async def undelete_user(self, session: AsyncSession, user_id: str) -> None:
+    async def undelete_user(self, session: AsyncSession, user_id: UUID) -> None:
         """Clear the deleted_at flag to restore a soft-deleted user."""
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()

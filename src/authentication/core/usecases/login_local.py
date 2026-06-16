@@ -40,6 +40,7 @@ class LoginLocalUserUseCase(Generic[UoWType]):
         # Gatekeeper: Block users who haven't proved ownership of their email.
         if not user.is_verified:
             await self._logger.warning(f"Login failed: Email {email} is not verified")
+            await self._hasher.dummy_verify()   # equalise timing with "wrong password" path
             raise UnverifiedEmailException()
 
         stored_hash = await self._user_repo.find_password_hash(uow.session, user.id)

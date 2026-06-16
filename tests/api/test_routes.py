@@ -77,8 +77,10 @@ def test_client(mock_usecases):
 
     app.dependency_overrides[get_db] = lambda: DummySession()
     from src.authentication.api.dependencies import get_jwt_payload
-    app.dependency_overrides[get_current_user] = lambda: UserIdentity(id="123", email="test@test.com", is_verified=True)
-    app.dependency_overrides[get_jwt_payload] = lambda: {"jti": "mock_jti", "exp": 9999999999, "_user_obj": UserIdentity(id="123", email="test@test.com", is_verified=True)}
+    import uuid
+    mock_id = uuid.UUID('12345678-1234-5678-1234-567812345678')
+    app.dependency_overrides[get_current_user] = lambda: UserIdentity(id=mock_id, email="test@test.com", is_verified=True)
+    app.dependency_overrides[get_jwt_payload] = lambda: {"jti": "mock_jti", "exp": 9999999999, "_user_obj": UserIdentity(id=mock_id, email="test@test.com", is_verified=True)}
     
     for dep, mock_obj in mock_usecases.items():
         app.dependency_overrides[dep] = lambda mock_obj=mock_obj: mock_obj
@@ -193,7 +195,7 @@ def test_list_sessions(test_client):
     assert isinstance(response.json(), list)
 
 def test_revoke_session(test_client):
-    response = test_client.delete("/auth/sessions/family_123")
+    response = test_client.delete("/auth/sessions/12345678-1234-5678-1234-567812345678")
     assert response.status_code == 204
 
 def test_get_profile(test_client):

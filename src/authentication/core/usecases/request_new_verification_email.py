@@ -11,7 +11,7 @@ from typing import Protocol, Any, Generic, TypeVar
 import hashlib
 import time
 import secrets
-from src.shared.config import token_settings
+from src.shared.config import verification_settings
 from src.authentication.core.utils import hash_otp
 
 
@@ -49,7 +49,7 @@ class RequestNewVerificationEmailUseCase(Generic[UoWType]):
             return
             
         otp = f"{secrets.randbelow(1000000):06d}"
-        otp_expires_at = int(time.time()) + token_settings.OTP_EXPIRATION_SECONDS
+        otp_expires_at = int(time.time()) + verification_settings.OTP_EXPIRATION_SECONDS
         
         payload = {
             "otp": hash_otp(otp),
@@ -60,7 +60,7 @@ class RequestNewVerificationEmailUseCase(Generic[UoWType]):
         }
         
         # Save to Redis, refreshing the 15 minute total TTL
-        await self._cache.set_dict(redis_key, payload, token_settings.OTP_RESEND_WINDOW_SECONDS) 
+        await self._cache.set_dict(redis_key, payload, verification_settings.OTP_RESEND_WINDOW_SECONDS) 
         
         await self._email_sender.send_verification_email(email, otp)
         await self._logger.info(f"Resent verification OTP to pending user {email}")

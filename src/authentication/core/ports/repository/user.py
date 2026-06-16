@@ -5,6 +5,7 @@ This module defines the interface for reading and writing user data.
 """
 from typing import Protocol, TypeVar
 from src.authentication.core.domain import UserIdentity
+from uuid import UUID
 
 SessionType = TypeVar('SessionType', contravariant=True)
 
@@ -19,7 +20,7 @@ class UserRepositoryPort(Protocol[SessionType]):
         """Look up a user by email. Returns None if not found."""
         ...
 
-    async def find_password_hash(self, session: SessionType, user_id: str) -> str | None:
+    async def find_password_hash(self, session: SessionType, user_id: UUID) -> str | None:
         """Look up the local password hash for a given user. Returns None if they only have OAuth."""
         ...
 
@@ -31,7 +32,7 @@ class UserRepositoryPort(Protocol[SessionType]):
         ...
 
     async def link_oauth_account(
-        self, session: SessionType, user_id: str, provider: str, oauth_sub: str,
+        self, session: SessionType, user_id: UUID, provider: str, oauth_sub: str,
     ) -> None:
         """Link a new OAuth provider to an existing user."""
         ...
@@ -42,23 +43,23 @@ class UserRepositoryPort(Protocol[SessionType]):
         """Create a new user and link a local password. Returns the new user identity."""
         ...
 
-    async def update_password(self, session: SessionType, user_id: str, password_hash: str) -> None:
+    async def update_password(self, session: SessionType, user_id: UUID, password_hash: str) -> None:
         """Update or insert a password for a given user ID."""
         ...
 
-    async def disable_local_login(self, session: SessionType, user_id: str) -> None:
+    async def disable_local_login(self, session: SessionType, user_id: UUID) -> None:
         """Disable local password login for a given user ID."""
         ...
 
-    async def verify_user_email(self, session: SessionType, user_id: str) -> None:
-        """Mark a user's email as verified."""
+    async def verify_user_email(self, session: SessionType, user_id: UUID, name: str | None = None) -> None:
+        """Mark a user's email as verified. Updates name if provided."""
         ...
 
     async def cleanup_unverified_users(self, session: SessionType, hours_old: int = 24) -> int:
         """Delete unverified users older than the specified hours. Returns number of deleted rows."""
         ...
 
-    async def undelete_user(self, session: SessionType, user_id: str) -> None:
+    async def undelete_user(self, session: SessionType, user_id: UUID) -> None:
         """Restore a soft-deleted user."""
         ...
 

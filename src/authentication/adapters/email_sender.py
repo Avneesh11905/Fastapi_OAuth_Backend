@@ -47,14 +47,15 @@ class AuthEmailService:
         self._jinja_env = Environment(loader=FileSystemLoader(templates_dir))
         self._jinja_env.globals["now"] = datetime.datetime.now
 
-    def _render_and_send(self, loop: asyncio.AbstractEventLoop, to_email: str, subject: str, template_name: str, context: dict) -> None:
+    async def _render_and_send(self, to_email: str, subject: str, template_name: str, context: dict) -> None:
         try:
             template = self._jinja_env.get_template(template_name)
             html_content = template.render(**context)
-            self._client.send_email(to=to_email, subject=subject, html=html_content)
-            asyncio.run_coroutine_threadsafe(self._logger.info(f"Email '{subject}' sent to {to_email}"), loop)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._client.send_email, to_email, subject, html_content)
+            await self._logger.info(f"Email '{subject}' sent to {to_email}")
         except Exception as e:
-            asyncio.run_coroutine_threadsafe(self._logger.error(f"Failed to send email '{subject}' to {to_email}: {e}"), loop)
+            await self._logger.error(f"Failed to send email '{subject}' to {to_email}: {e}")
 
     async def send_welcome_email(self, to_email: str, name: str | None) -> None:
         display_name = name or "there"
@@ -64,10 +65,8 @@ class AuthEmailService:
             "login_url": f"{self._frontend_url}/",
             "theme": self._template_name,
         }
-        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
-            loop=loop,
             to_email=to_email,
             subject=f"Welcome to {self._proj_name}!",
             template_name="onboarding/welcome.html",
@@ -80,10 +79,8 @@ class AuthEmailService:
             "proj_name": self._proj_name,
             "theme": self._template_name,
         }
-        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
-            loop=loop,
             to_email=to_email,
             subject=f"Password Reset - {self._proj_name}",
             template_name="security/password_reset.html",
@@ -96,10 +93,8 @@ class AuthEmailService:
             "proj_name": self._proj_name,
             "theme": self._template_name,
         }
-        loop = asyncio.get_running_loop()
         self._task_runner.add_task(
             self._render_and_send,
-            loop=loop,
             to_email=to_email,
             subject=f"Verify your Email - {self._proj_name}",
             template_name="security/otp_verification.html",

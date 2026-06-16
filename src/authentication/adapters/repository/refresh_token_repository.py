@@ -24,7 +24,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         self._lifetime_days = lifetime_days
         self._cache = cache
 
-    async def create(self, session: AsyncSession, user_id: str, family_id: UUID | None = None, auth_provider: str = "local", client_meta: ClientMetadata | None = None) -> str:
+    async def create(self, session: AsyncSession, user_id: UUID, family_id: UUID | None = None, auth_provider: str = "local", client_meta: ClientMetadata | None = None) -> str:
         """Create a new refresh token. Returns the raw token."""
         raw_token = secrets.token_urlsafe(64)
         hashed = hash_token(raw_token)
@@ -47,15 +47,13 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         return raw_token
 
     async def _revoke_family(self, session: AsyncSession, family_id: UUID) -> None:
-        """Revoke all tokens in a family."""
+        """Soft-invalidate all tokens in a family."""
         result = await session.execute(select(RefreshToken).where(RefreshToken.family_id == family_id))
         for row in result.scalars():
             if self._cache:
                 await self._cache.delete_key(cache_key(row.token))
-            await session.delete(row)
-            
-        if self._cache:
-            await self._cache.set_string(f"blacklist:family:{family_id}", "revoked", ttl=900)
+            row.used = True
+            session.add(row)
 
     async def revoke(self, session: AsyncSession, token: str) -> None:
         """Revoke a refresh token and its entire rotation family."""
@@ -65,9 +63,9 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         if refresh:
             await self._revoke_family(session, refresh.family_id)
 
-    async def revoke_by_family(self, session: AsyncSession, family_id: str) -> None:
+    async def revoke_by_family(self, session: AsyncSession, family_id: UUID) -> None:
         """Revoke a specific token family."""
-        await self._revoke_family(session, UUID(family_id))
+        await self._revoke_family(session, family_id)
 
     async def cleanup_expired(self, session: AsyncSession) -> int:
         """Delete all expired and used refresh tokens. Returns count deleted."""
@@ -84,7 +82,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
             await session.delete(t)
         return len(token_list)
 
-    async def validate(self, session: AsyncSession, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, str | None]:
+    async def validate(self, session: AsyncSession, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, UUID | None]:
         hashed = hash_token(token)
 
         result = await session.execute(select(RefreshToken).where(RefreshToken.token == hashed))
@@ -113,11 +111,13 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         if not user:
             return None, None, None
 
+        from pydantic import AnyHttpUrl
+        from typing import cast
         user_identity = UserIdentity(
-            id=str(user.id),
+            id=user.id,
             email=user.email,
             name=user.name,
-            picture=user.picture,
+            picture=cast(AnyHttpUrl, user.picture) if user.picture else None,
             is_verified=user.is_verified,
         )
 
@@ -133,11 +133,11 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
 
             if self._cache:
                 await self._cache.delete_key(cache_key(hashed))
-            new_token = await self.create(session, str(user.id), family_id=refresh.family_id, auth_provider=refresh.auth_provider, client_meta=client_meta)
+            new_token = await self.create(session, user.id, family_id=refresh.family_id, auth_provider=refresh.auth_provider, client_meta=client_meta)
 
-        return user_identity, new_token, str(refresh.family_id)
+        return user_identity, new_token, refresh.family_id
 
-    async def get_active_sessions(self, session: AsyncSession, user_id: str, current_token: str | None = None) -> list[ActiveSession]:
+    async def get_active_sessions(self, session: AsyncSession, user_id: UUID, current_token: str | None = None) -> list[ActiveSession]:
         now = datetime.now(timezone.utc)
         result = await session.execute(
             select(RefreshToken)
@@ -151,7 +151,7 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
             is_current = row.token == hashed_current
             sessions.append(
                 ActiveSession(
-                    family_id=str(row.family_id),
+                    family_id=row.family_id,
                     ip_address=row.ip_address,
                     user_agent=row.user_agent,
                     created_at=row.created_at,

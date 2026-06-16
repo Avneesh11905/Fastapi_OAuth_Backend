@@ -5,7 +5,8 @@ along with automatic context injection (like request IDs).
 """
 from src.shared.infrastructure.sql.tables import SystemLog
 from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-import asyncio
+from src.shared.container import shared_container
+import sys
 from typing import TypedDict
 
 class LogEntryData(TypedDict):
@@ -15,54 +16,30 @@ class LogEntryData(TypedDict):
     filename: str | None
     lineno: int | None
 
-_log_queue: asyncio.Queue[LogEntryData] = asyncio.Queue()
-
-_log_worker_task: asyncio.Task | None = None
-
-async def _log_worker_loop():
-    """Background task to process logs in batches."""
-    while True:
-        try:
-            entries = []
-            entry = await _log_queue.get()
-            entries.append(entry)
-            
-            while not _log_queue.empty() and len(entries) < 100:
-                try:
-                    entries.append(_log_queue.get_nowait())
-                except asyncio.QueueEmpty:
-                    break
-                    
-            try:
-                async with AsyncSessionLocal() as db:
-                    for item in entries:
-                        log_row = SystemLog(
-                            level=item["level"], 
-                            source=item["source"], 
-                            message=item["message"],
-                            file=item["filename"],
-                            line=item["lineno"]
-                        )
-                        db.add(log_row)
-                    await db.commit()
-            except Exception:
-                pass
-            finally:
-                for _ in entries:
-                    _log_queue.task_done()
-        except asyncio.CancelledError:
-            break
+async def _insert_log_to_db(level: str, source: str, message: str, filename: str | None, lineno: int | None):
+    """Inserts a single log entry. Falls back to stderr on failure."""
+    try:
+        async with AsyncSessionLocal() as db:
+            log_row = SystemLog(
+                level=level, 
+                source=source, 
+                message=message,
+                file=filename,
+                line=lineno
+            )
+            db.add(log_row)
+            await db.commit()
+    except Exception:
+        # Fallback if DB is completely down
+        sys.stderr.write(f"[FALLBACK LOG] {level} - {source}: {message}\n")
 
 def start_log_worker_task():
-    global _log_worker_task
-    if _log_worker_task is None:
-        _log_worker_task = asyncio.create_task(_log_worker_loop())
+    """No-op. Left for compatibility with lifespan."""
+    pass
 
 def stop_log_worker_task():
-    global _log_worker_task
-    if _log_worker_task is not None:
-        _log_worker_task.cancel()
-        _log_worker_task = None
+    """No-op. Left for compatibility with lifespan."""
+    pass
 
 class AsyncSQLLogger:
     """
@@ -82,15 +59,16 @@ class AsyncSQLLogger:
         lineno = None
             
         try:
-            _log_queue.put_nowait({
-                "level": level,
-                "source": self._name,
-                "message": message,
-                "filename": filename,
-                "lineno": lineno
-            })
+            shared_container.task_runner.add_task(
+                _insert_log_to_db,
+                level,
+                self._name,
+                message,
+                filename,
+                lineno
+            )
         except Exception:
-            pass
+            sys.stderr.write(f"[FALLBACK LOG - SCHEDULING FAILED] {level} - {self._name}: {message}\n")
 
     async def trace(self, message: str) -> None:
         """Finest-grained informational events — request tracing, variable dumps."""

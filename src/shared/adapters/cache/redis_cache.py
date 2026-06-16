@@ -41,5 +41,8 @@ class RedisCacheAdapter:
         """Retrieve a string from Redis."""
         return cast(str | None, await self._client.get(key))
 
-    async def incr(self, key: str) -> int:
-        return await self._client.incr(key)
+    async def incr(self, key: str, ttl: int | None = None) -> int:
+        val = await self._client.incr(key)
+        if ttl is not None:
+            await self._client.expire(key, ttl, nx=True)  # NX = only if no TTL exists (first creation)
+        return val

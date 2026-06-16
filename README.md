@@ -39,7 +39,7 @@ You can safely drop this into your new projects, easily swap out infrastructure 
   - [4.2 Login \& Session Issuance (Local)](#42-login--session-issuance-local)
   - [4.3 Login \& Session Issuance (OAuth)](#43-login--session-issuance-oauth)
   - [4.4 Session Rotation](#44-session-rotation)
-  - [4.5 Logout \& Blacklisting](#45-logout--blacklisting)
+  - [4.5 Logout \& Session Revocation](#45-logout--session-revocation)
 - [5. 💻 Frontend Integration Guidelines](#5--frontend-integration-guidelines)
   - [5.1 📍 Required Frontend Routes](#51--required-frontend-routes)
   - [5.2 🗺️ API Reference Checklist](#52-️-api-reference-checklist)
@@ -195,13 +195,20 @@ The `.env` file controls the entire behavior of the application without needing 
 | `GITHUB_CLIENT_ID` | `"Iv1.1234"` | From GitHub Developer Settings. |
 | `GITHUB_CLIENT_SECRET` | `"abc1234"` | From GitHub Developer Settings. |
 
-### 3.5 Token & Rate Limiting Thresholds
+### 3.5 Token, Verification & Rate Limiting Thresholds
 | Variable | Example | Description |
 |---|---|---|
 | `TOKEN_ACCESS_TOKEN_LIFETIME_MINUTES` | `15` | How long the stateless JWT is valid. |
 | `TOKEN_REFRESH_TOKEN_LIFETIME_DAYS` | `7` | How long a user stays logged in before being forced to re-authenticate. |
+| `VERIFICATION_OTP_EXPIRATION_SECONDS` | `300` | How long a 6-digit OTP is valid after being issued. |
+| `VERIFICATION_OTP_RESEND_WINDOW_SECONDS` | `900` | The window within which OTP resend is allowed (keeps the pending registration alive). |
+| `VERIFICATION_OTP_MAX_ATTEMPTS` | `5` | Maximum number of wrong OTP attempts before the flow is locked out and a new OTP must be requested. |
+| `VERIFICATION_PASSWORD_RESET_EXPIRY_SECONDS` | `900` | How long a password reset token is valid after being issued. |
 | `RATE_LIMIT_LOGIN_RATE_LIMIT` | `"5/minute"` | Strict slow-down on the login endpoints to prevent brute forcing. |
 | `RATE_LIMIT_DEFAULT_RATE_LIMIT` | `"60/minute"` | Default API limit. |
+
+> [!NOTE]
+> **Prefix change:** OTP and password-reset settings previously used the `TOKEN_` prefix. They were moved to a dedicated `VerificationSettings` class and now use the `VERIFICATION_` prefix.
 
 ---
 
@@ -286,7 +293,7 @@ sequenceDiagram
 ```
 
 ### 4.4 Session Rotation
-To mitigate token theft, the Refresh Token is rotated on every use at the `/refresh` endpoint. The old token is invalidated, and a new one is issued.
+To mitigate token theft, the system implements **lazy Refresh Token rotation**. Rather than rotating the token on every single call (which causes unnecessary DB writes), the token is only rotated when it has **≤ 30% of its lifetime remaining**. Most `/refresh` calls simply re-validate the existing token and issue a new Access Token without touching the Refresh Token at all.
 
 ```mermaid
 sequenceDiagram
@@ -295,14 +302,25 @@ sequenceDiagram
     participant Database
     
     Frontend->>AuthAPI: POST /auth/refresh (Cookie)
-    AuthAPI->>Database: Validate & Invalidate Old Token
-    AuthAPI->>Database: Generate & Save NEW Refresh Token
-    AuthAPI-->>Frontend: Set-Cookie: new_refresh_token
+    AuthAPI->>Database: Validate Token (check used=False, not expired)
+    alt Token lifetime > 30% remaining
+        AuthAPI-->>Frontend: Set-Cookie: same refresh_token (no rotation)
+    else Token lifetime ≤ 30% remaining
+        AuthAPI->>Database: Mark old token used=True
+        AuthAPI->>Database: Generate & Save NEW Refresh Token
+        AuthAPI-->>Frontend: Set-Cookie: new_refresh_token
+    end
     AuthAPI-->>Frontend: JSON: new_access_token (JWT)
 ```
 
-### 4.5 Logout & Blacklisting
-Because Access Tokens (JWTs) are stateless, they cannot be deleted from the database. On logout, the token's unique ID (`jti`) is added to a Cache Blacklist until it naturally expires.
+### 4.5 Logout & Session Revocation
+Logout and device revocation use two complementary mechanisms:
+
+- **Access Token (`jti`) blacklist** — Because JWTs are stateless, the current access token's unique ID (`jti`) is written to the cache with a TTL equal to its remaining lifetime. Any subsequent request bearing that token is rejected immediately, even before it expires naturally.
+- **Refresh Token soft-invalidation** — On logout or device revocation (`DELETE /auth/sessions/{family_id}`), all refresh tokens in the session family are marked `used=True` in the database. No Redis `blacklist:family:*` key is written. Active access tokens from revoked sessions expire naturally within `ACCESS_TOKEN_LIFETIME_MINUTES` (default 15 min).
+
+> [!NOTE]
+> **Multi-worker note:** The per-`jti` blacklist still requires a shared cache (Redis) in multi-worker deployments. The family revocation check is DB-only and works correctly across workers without Redis.
 
 ---
 
@@ -322,7 +340,7 @@ You only *have* to build two routes on your frontend to handle the core flows:
 > **Token Mechanics:** The backend returns the **Access Token** in the JSON body, which you must attach as `Authorization: Bearer <token>` to protected API requests. The **Refresh Token** is set as a secure, `HttpOnly` cookie—so the browser handles it completely automatically!
 
 > [!WARNING]
-> **Account Deletion is Permanent:** `DELETE /users/me` performs an **immediate hard delete** — the user record and all associated data (OAuth accounts, passwords, sessions) are permanently removed from the database. The current JWT is also blacklisted in cache and the refresh cookie is cleared. There is no soft-delete or recovery window. Ensure your frontend shows an explicit confirmation prompt before calling this endpoint.
+> **Account Deletion — 30-day Recovery Window:** `DELETE /users/me` performs a **soft-delete** — the account is immediately deactivated (the user cannot log in) and is scheduled for permanent purge after **30 days**. Within that window, the user can recover their account simply by logging in again. After 30 days, the account and all associated data (OAuth links, passwords, sessions) are permanently removed by a background cleanup task. Ensure your frontend clearly communicates this recovery window before calling this endpoint.
 
 ---
 
@@ -337,7 +355,7 @@ Here is your treasure map to the backend API.
 | Method | Endpoint | Description |
 |:---:|---|---|
 | `POST` | `/auth/register` | Creates a new user (`is_verified=False`) and dispatches a 6-digit OTP email. |
-| `POST` | `/auth/verify-email` | Validates the OTP and unlocks the account. |
+| `POST` | `/auth/verify-email` | Validates the OTP, unlocks the account, and **auto-logs the user in** — sets `refresh_token` + `csrf_token` cookies on success. The frontend should immediately call `POST /auth/refresh` to obtain the Access Token. |
 | `POST` | `/auth/verify-email/resend` | Lost the code? Generates and emails a brand new OTP. |
 | `POST` | `/auth/login/local` | Authenticates with email/password. Boom! You've got an `HttpOnly` session cookie! (Call `/auth/refresh` for the JWT). |
 | `GET` | `/auth/login/{provider}` | Redirects the user to an OAuth provider (e.g., `/auth/login/google`). |
@@ -355,7 +373,7 @@ Here is your treasure map to the backend API.
 |:---:|---|---|
 | `GET` | `/users/me` | Fetches the currently authenticated user's profile data. **Note:** This endpoint implements Lazy Caching via Redis/Memory, resulting in zero database hits for successive calls. Cache is automatically invalidated upon updates. |
 | `PATCH` | `/users/me` | Updates display name, profile picture, or the `receive_updates` opt-in preference. *(Requires `X-CSRF` header)*. |
-| `DELETE`| `/users/me` | **Permanently** deletes the user's account, all associated data (OAuth links, passwords, sessions), blacklists the current JWT, and clears the session cookie. This action is irreversible. *(Requires `X-CSRF` header)*. |
+| `DELETE`| `/users/me` | **Soft-deletes** the user's account. The account is immediately deactivated and scheduled for permanent purge after 30 days. Recoverable within that window by logging in again. Also blacklists the current JWT and clears the session cookie. *(Requires `X-CSRF` header)*. |
 
 ---
 
@@ -427,8 +445,8 @@ Currently, the template uses `ResendEmailClient`. To swap it:
    from src.shared.core.ports.email_client import SharedEmailClientPort
 
    class SendGridEmailClient:
-       async def send_email(self, to: str, subject: str, html: str) -> None:
-           # SendGrid dispatch logic here
+       def send_email(self, to: str, subject: str, html: str) -> None:
+           # SendGrid dispatch logic here (sync — called via run_in_executor)
            pass
    ```
 3. Update the Composition Root in `src/authentication/api/container.py` to use your new adapter:
@@ -558,17 +576,19 @@ To implement your custom RBAC/PBAC rules, edit the `CustomAuthorizationAdapter`:
 
 ```python
 # src/authorization/adapters/custom_authorization.py
+from uuid import UUID
+
 class CustomAuthorizationAdapter(AuthorizationPort[AsyncSession]):
     
     # 1. Stateless Roles (Injected into JWT)
-    async def get_custom_claims(self, session: AsyncSession, user_id: str) -> dict:
+    async def get_custom_claims(self, session: AsyncSession, user_id: UUID) -> dict:
         # Example: Fetch user roles from the database
         roles = await self._fetch_user_roles(session, user_id)
         # These roles are embedded into the Access Token when the user logs in!
         return {"roles": roles} 
 
     # 2. Stateful Permissions (Live Database Check)
-    async def has_permission(self, session: AsyncSession, user_id: str, action: str, resource: str) -> bool:
+    async def has_permission(self, session: AsyncSession, user_id: UUID, action: str, resource: str) -> bool:
         # Example: Check if the user owns a specific document
         return await self._check_db_for_ownership(session, user_id, action, resource)
 ```
@@ -625,9 +645,10 @@ FastAPI is incredibly fast, but sending emails or writing logs can block the eve
 The `src/shared/adapters/task_runner/asyncio_task_runner.py` executes tasks in the background natively. You can queue a task anywhere in your code without needing a heavy Celery worker:
 
 ```python
+from uuid import UUID
 from src.shared.container import shared_container
 
-async def my_slow_function(user_id: str):
+async def my_slow_function(user_id: UUID) -> None:
     pass
 
 # Push it to the background and return immediately
@@ -657,7 +678,10 @@ pytest tests/
 Before deploying this template to a live environment, you **must** verify the following:
 
 ### 12.1 Enforce Remote Caching
-The default `MemoryCacheAdapter` uses a built-in Python dictionary. In a multi-worker production environment (e.g., `gunicorn -w 4`), **each worker will have an isolated cache**. This completely breaks Rate Limiting and JWT Blacklisting. Open `src/shared/container.py` and swap to `RedisCacheAdapter` before deploying.
+The default `MemoryCacheAdapter` uses a built-in Python dictionary. In a multi-worker production environment (e.g., `gunicorn -w 4`), **each worker will have an isolated cache**. This completely breaks **Rate Limiting** and **per-`jti` Access Token blacklisting** (used on logout). Note that session family revocation is DB-based and works correctly across workers without Redis. Open `src/shared/container.py` and swap to `RedisCacheAdapter` before deploying.
+
+> [!WARNING]
+> The `asyncio.Lock` inside `MemoryCacheAdapter` provides no cross-process protection. It only guards against concurrent access within a single worker process.
 
 ### 12.2 Set Environment to Production (`ENV="production"`)
 Leaving `ENV="development"` in production exposes the `/dev/email/preview` gallery routes to the public and disables secure cookie validation.

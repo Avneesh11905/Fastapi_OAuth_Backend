@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import inspect
 from typing import Callable, Any, ParamSpec
 from src.shared.core.ports.task_runner import TaskRunnerPort
 
@@ -7,15 +8,23 @@ P = ParamSpec("P")
 
 class AsyncioTaskRunner(TaskRunnerPort):
     """
-    Implements TaskRunnerPort by offloading synchronous functions 
-    to a background thread pool.
+    Implements TaskRunnerPort.
+    - Async callables (coroutine functions) → scheduled as asyncio.create_task (runs in event loop)
+    - Sync callables → offloaded to thread pool via run_in_executor (original behaviour)
     """
     def __init__(self):
-        self._background_tasks = set()
+        self._background_tasks: set = set()
 
     def add_task(self, task: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
         loop = asyncio.get_running_loop()
-        func = functools.partial(task, *args, **kwargs)
-        future = loop.run_in_executor(None, func)
-        self._background_tasks.add(future)
-        future.add_done_callback(self._background_tasks.discard)
+        if inspect.iscoroutinefunction(task):
+            # Async task: runs in the event loop, can await anything freely
+            t = loop.create_task(task(*args, **kwargs)) # type: ignore
+            self._background_tasks.add(t)
+            t.add_done_callback(self._background_tasks.discard)
+        else:
+            # Sync task: offloaded to thread pool (legacy behaviour)
+            func = functools.partial(task, *args, **kwargs)
+            future = loop.run_in_executor(None, func) # type: ignore
+            self._background_tasks.add(future)
+            future.add_done_callback(self._background_tasks.discard)

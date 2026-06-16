@@ -96,7 +96,7 @@ class OAuthCallbackUseCase(Generic[UoWType]):
 
         # Step 3: Brand new user
         user = await self._user_repo.create_user_with_oauth(
-            uow.session, email, name, picture, provider, oauth_sub,
+            uow.session, email, name, str(picture) if picture else None, provider, oauth_sub,
         )
         refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
         

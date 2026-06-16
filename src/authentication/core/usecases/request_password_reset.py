@@ -33,7 +33,8 @@ class RequestPasswordResetUseCase(Generic[UoWType]):
         
         # Store in cache with 15 minute TTL
         # Key: "pwd_reset:{token}" -> Value: user.id
-        await self.cache.set_string(f"pwd_reset:{token}", str(user.id), 900)
+        from src.shared.config import verification_settings
+        await self.cache.set_string(f"pwd_reset:{token}", str(user.id), verification_settings.PASSWORD_RESET_EXPIRY_SECONDS)
         
         reset_url = f"{self.frontend_url}/reset-password?token={token}"
         await self.email_sender.send_password_reset_email(email, reset_url)

@@ -2,6 +2,7 @@ from typing import Protocol, Any, Generic, TypeVar
 from src.authentication.core.ports import UserRepositoryPort, PasswordHasherPort
 from src.shared.core.ports.logger import LoggerPort
 from src.authentication.core.domain.exceptions import InvalidCredentialsException
+from uuid import UUID
 
 class UoWPort(Protocol):
     session: Any
@@ -15,7 +16,7 @@ class ChangePasswordUseCase(Generic[UoWType]):
         self._hasher = hasher
         self._logger = logger
 
-    async def execute(self, uow: UoWType, user_id: str, current_password: str | None, new_password: str) -> None:
+    async def execute(self, uow: UoWType, user_id: UUID, current_password: str | None, new_password: str) -> None:
         if current_password and current_password == new_password:
             from src.authentication.core.domain.exceptions import SamePasswordException
             raise SamePasswordException()

@@ -29,8 +29,6 @@ class RefreshSessionUseCase(Generic[UoWType]):
         Returns (None, None) if the refresh token is invalid.
         """
         user, new_refresh_token, family_id = await self._refresh_repo.validate(uow.session, refresh_token, client_meta=client_meta)
-        if hasattr(uow.session, 'commit'):
-            pass
         if not user:
             return None, None
             

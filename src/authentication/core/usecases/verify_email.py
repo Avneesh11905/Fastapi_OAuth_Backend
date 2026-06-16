@@ -65,14 +65,13 @@ class VerifyEmailUseCase(Generic[UoWType]):
             await self._logger.warning(f"Verification failed: OTP expired for {email}")
             raise InvalidTokenException(detail="OTP has expired. Please request a new one.")
             
-        # 4. Check attempts using atomic incr to prevent brute-force race conditions
-        attempts_key = f"otp_attempts:{email_hash}"
-        attempts = await self._cache.incr(attempts_key)
-        if attempts == 1:
-            from src.shared.config import token_settings
-            await self._cache.set_string(attempts_key, "1", token_settings.OTP_RESEND_WINDOW_SECONDS)
+        # 4. Increment attempt count and persist atomically inside the same payload
+        from src.shared.config import verification_settings
+        attempts = int(payload.get("attempts", 0)) + 1
+        payload["attempts"] = attempts
+        await self._cache.set_dict(redis_key, payload, verification_settings.OTP_RESEND_WINDOW_SECONDS)
 
-        if attempts > 5:
+        if attempts > verification_settings.OTP_MAX_ATTEMPTS:
             await self._cache.delete_key(redis_key)
             await self._logger.warning(f"Verification failed: Too many OTP attempts for {email}")
             raise InvalidTokenException(detail="Too many failed attempts. Please request a new OTP.")
@@ -85,8 +84,8 @@ class VerifyEmailUseCase(Generic[UoWType]):
             await self._logger.warning(f"Verification failed: Incorrect OTP for {email}")
             raise InvalidTokenException(detail="Invalid OTP")
             
-        # 5. Success! Mark the user as verified in PostgreSQL
-        await self._user_repo.verify_user_email(uow.session, str(user.id))
+        # 6. Success! Mark the user as verified in PostgreSQL
+        await self._user_repo.verify_user_email(uow.session, user.id, name=payload.get("pending_name"))
         
         pending_password_hash = payload.get("pending_password_hash")
         if pending_password_hash:

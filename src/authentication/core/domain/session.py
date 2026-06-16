@@ -4,6 +4,7 @@ Contains pure domain entities related to tracking user sessions and devices.
 """
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
 class ClientMetadata(BaseModel):
     """Metadata about the client making the request (e.g., extracted from HTTP headers)."""
@@ -12,7 +13,7 @@ class ClientMetadata(BaseModel):
 
 class ActiveSession(BaseModel):
     """Represents an active, unexpired login session for a user."""
-    family_id: str
+    family_id: UUID
     ip_address: str | None
     user_agent: str | None
     created_at: datetime
