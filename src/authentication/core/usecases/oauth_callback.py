@@ -39,7 +39,7 @@ class OAuthCallbackUseCase(Generic[UoWType]):
         self._refresh_repo = refresh_repo
         self._email_sender = email_sender
 
-    async def execute(self, uow: UoWType, user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
+    async def execute(self, uow: UoWType, user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str, bool]:
         """
         Process an OAuth callback.
 
@@ -48,7 +48,7 @@ class OAuthCallbackUseCase(Generic[UoWType]):
             user_info: Structured OAuth data payload from the provider.
 
         Returns:
-            (user_identity, raw_refresh_token)
+            (user_identity, raw_refresh_token, is_new_user)
         """
         provider = user_info.provider
         oauth_sub = user_info.sub
@@ -66,7 +66,7 @@ class OAuthCallbackUseCase(Generic[UoWType]):
                 
             # We explicitly DO NOT update the name/picture here so we don't overwrite user preferences
             refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
-            return user, refresh_token
+            return user, refresh_token, False
 
         # Step 2: Check if a user with this email already exists (account linking)
         user = await self._user_repo.find_by_email(uow.session, email)
@@ -94,7 +94,7 @@ class OAuthCallbackUseCase(Generic[UoWType]):
 
             await self._user_repo.link_oauth_account(uow.session, user.id, provider, oauth_sub)
             refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
-            return user, refresh_token
+            return user, refresh_token, False
 
         # Step 3: Brand new user
         user = await self._user_repo.create_user_with_oauth(
@@ -105,4 +105,4 @@ class OAuthCallbackUseCase(Generic[UoWType]):
         # Fire-and-forget email sending
         await self._email_sender.send_welcome_email(user.email, user.name)
         
-        return user, refresh_token
+        return user, refresh_token, True

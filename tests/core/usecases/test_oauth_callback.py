@@ -20,13 +20,14 @@ async def test_brand_new_user_signup(user_repo, refresh_token_port, mock_session
         picture=cast(AnyHttpUrl, "https://example.com/pic.png")
     )
 
-    user, token = await usecase.execute(mock_session, user_info)
+    user, token, is_new_user = await usecase.execute(mock_session, user_info)
 
     # Asserts
     email_sender.send_welcome_email.assert_called_once_with("test@example.com", "Test User")
     assert user.email == "test@example.com"
     assert user.name == "Test User"
     assert token == f"mock_token_for_{user.id}"
+    assert is_new_user is True
     
     # Verify mock state
     assert len(user_repo.users) == 1
@@ -51,7 +52,7 @@ async def test_existing_user_exact_oauth_match(user_repo, refresh_token_port, mo
         picture=cast(AnyHttpUrl, "http://example.com/newpic.png")
     )
 
-    user, token = await usecase.execute(mock_session, user_info)
+    user, token, is_new_user = await usecase.execute(mock_session, user_info)
 
     # Asserts
     email_sender.send_welcome_email.assert_not_called()
@@ -59,6 +60,7 @@ async def test_existing_user_exact_oauth_match(user_repo, refresh_token_port, mo
     assert user.picture is None
     assert len(user_repo.users) == 1 # Still only 1 user
     assert len(user_repo.oauth_links) == 1 # Still only 1 link
+    assert is_new_user is False
 
 @pytest.mark.asyncio
 async def test_account_linking_different_provider_same_email(user_repo, refresh_token_port, mock_session):
@@ -79,7 +81,7 @@ async def test_account_linking_different_provider_same_email(user_repo, refresh_
         picture=cast(AnyHttpUrl, "https://example.com/github.png")
     )
 
-    user, token = await usecase.execute(mock_session, user_info)
+    user, token, is_new_user = await usecase.execute(mock_session, user_info)
 
     # Asserts
     email_sender.send_welcome_email.assert_not_called()
@@ -89,3 +91,4 @@ async def test_account_linking_different_provider_same_email(user_repo, refresh_
     # Verify mock state
     assert len(user_repo.users) == 1 # Did NOT create a new user
     assert len(user_repo.oauth_links) == 2 # Did create a second oauth link
+    assert is_new_user is False

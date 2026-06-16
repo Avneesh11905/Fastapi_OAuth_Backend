@@ -37,6 +37,13 @@ def mock_usecases():
             class MockUser:
                 id = "123"
             return MockUser(), "mock_refresh_token"
+
+    class MockOAuthCallbackUseCase:
+        async def execute(self, *args, **kwargs):
+            # return user, refresh_token, is_new_user
+            class MockUser:
+                id = "123"
+            return MockUser(), "mock_refresh_token", True
             
     class MockExecutePasswordResetUseCase:
         async def execute(self, *args, **kwargs):
@@ -64,7 +71,7 @@ def mock_usecases():
     return {
         deps.get_register_local_usecase: MockUseCase(),
         deps.get_login_local_usecase: MockLoginUseCase(),
-        deps.get_oauth_callback_usecase: MockLoginUseCase(),
+        deps.get_oauth_callback_usecase: MockOAuthCallbackUseCase(),
         deps.get_refresh_session_usecase: MockRefreshUseCase(),
         deps.get_request_new_verification_email_usecase: MockUseCase(),
         deps.get_verify_email_usecase: MockLoginUseCase(),

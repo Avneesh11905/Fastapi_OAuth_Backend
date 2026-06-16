@@ -45,6 +45,6 @@ async def oauth_callback(
 
     client_meta = extract_client_metadata(request)
     async with uow:
-        user, refresh_token = await usecase.execute(uow, user_info, client_meta=client_meta)
+        user, refresh_token, is_new_user = await usecase.execute(uow, user_info, client_meta=client_meta)
     
-    return build_auth_redirect(refresh_token, request)
+    return build_auth_redirect(refresh_token, request, is_new_user=is_new_user)

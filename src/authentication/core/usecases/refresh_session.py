@@ -34,6 +34,6 @@ class RefreshSessionUseCase(Generic[UoWType]):
             
         custom_claims = await self._claims_provider.get_custom_claims(uow.session, user.id)
         # Embed the family_id so the middleware can check it against the Redis blacklist
-        combined_claims = {"family_id": family_id, **custom_claims} if custom_claims else {"family_id": family_id}
+        combined_claims = {"family_id": str(family_id), **custom_claims} if custom_claims else {"family_id": str(family_id)}
         access_token = self._access_token.create(user, extra_claims=combined_claims)
         return access_token, new_refresh_token

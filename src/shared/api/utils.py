@@ -69,8 +69,9 @@ def build_auth_response(refresh_token: str, message: str = "Authenticated succes
     set_refresh_token_cookie(response, refresh_token, request)
     return response
 
-def build_auth_redirect(refresh_token: str, request: Request | None = None) -> RedirectResponse:
+def build_auth_redirect(refresh_token: str, request: Request | None = None, is_new_user: bool = False) -> RedirectResponse:
     """Builds a redirect to the frontend with the refresh token cookie attached."""
-    response = RedirectResponse(url=url_settings.FRONTEND_URL)
+    url = f"{url_settings.FRONTEND_URL}?new_user=true" if is_new_user else url_settings.FRONTEND_URL
+    response = RedirectResponse(url=url)
     set_refresh_token_cookie(response, refresh_token, request)
     return response
