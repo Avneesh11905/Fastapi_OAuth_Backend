@@ -5,6 +5,7 @@ ensuring the core business logic remains framework-agnostic.
 """
 from pydantic import BaseModel
 
+
 class UserProfile(BaseModel):
     id: str
     email: str

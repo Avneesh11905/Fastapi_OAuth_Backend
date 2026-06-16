@@ -2,14 +2,20 @@
 Contains shared utility functions for the API layer.
 Includes custom response formatters and generic error handlers to maintain a consistent JSON structure across the entire app.
 """
-from fastapi.responses import Response, JSONResponse, RedirectResponse
-from fastapi import Request
-from src.shared.config import token_settings, url_settings, cookie_settings
-from src.authentication.core.domain.session import ClientMetadata
-
 import hashlib
+
+from fastapi import Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from itsdangerous import URLSafeSerializer
-from src.shared.config import app_settings
+
+from src.authentication.core.domain.session import ClientMetadata
+from src.shared.config import (
+    app_settings,
+    cookie_settings,
+    token_settings,
+    url_settings,
+)
+
 
 def extract_client_metadata(request: Request) -> ClientMetadata:
     """Extracts IP address and User-Agent from the incoming request."""

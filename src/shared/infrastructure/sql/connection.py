@@ -2,14 +2,14 @@
 Manages the global SQLAlchemy asynchronous engine and session maker.
 Provides the `get_db` dependency used to inject database sessions into the API routes.
 """
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+
 from src.shared.config import database_settings
 
 
 class Base(DeclarativeBase):
     """SQLAlchemy 2.0 declarative base for all ORM models."""
-    pass
 
 
 engine = create_async_engine(

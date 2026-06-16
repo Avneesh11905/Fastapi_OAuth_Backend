@@ -8,10 +8,12 @@ and delegates the actual dispatch to the injected SharedEmailClientPort.
 To swap the email provider (e.g. Resend -> SendGrid), replace the SharedEmailClientPort
 implementation in the container — this file never changes.
 """
-from pathlib import Path
-import datetime
-from jinja2 import Environment, FileSystemLoader
 import asyncio
+import datetime
+from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from src.authentication.core.ports.email_sender import EmailSenderPort  # noqa: F401
 from src.shared.core.ports.email_client import SharedEmailClientPort
 from src.shared.core.ports.logger import LoggerPort

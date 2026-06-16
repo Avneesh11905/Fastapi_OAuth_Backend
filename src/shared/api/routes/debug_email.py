@@ -2,13 +2,14 @@
 Exposes internal endpoints strictly for debugging email templates during development.
 Allows developers to render Jinja2 HTML templates in the browser without actually sending an email.
 """
+import datetime
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
-import datetime
 
-from src.shared.config import app_settings, email_settings
+from src.shared.config import app_settings, email_settings, url_settings
 
 router = APIRouter(prefix="/dev")
 
@@ -51,7 +52,6 @@ async def preview_email(request: Request, template_path: str = "", theme: str | 
         raise HTTPException(status_code=404, detail=f"Template not found: {exc}")
 
     active_theme = theme if theme else email_settings.TEMPLATE_NAME
-    from src.shared.config import url_settings
     dummy_context = {
         "proj_name": "FastAPI OAuth",
         "name": "Demo User",

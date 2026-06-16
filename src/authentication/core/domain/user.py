@@ -1,9 +1,11 @@
 """
 Module: User
 """
-from pydantic import BaseModel, EmailStr, AnyHttpUrl
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import AnyHttpUrl, BaseModel, EmailStr
+
 
 class UserIdentity(BaseModel):
     """Pure domain entity — now powered by Pydantic."""

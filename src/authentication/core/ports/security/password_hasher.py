@@ -6,6 +6,7 @@ Core business logic relies on these interfaces rather than concrete implementati
 """
 from typing import Protocol
 
+
 class PasswordHasherPort(Protocol):
     """Interface for securely hashing and verifying passwords."""
 

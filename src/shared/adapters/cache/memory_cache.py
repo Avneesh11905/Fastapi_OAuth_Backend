@@ -8,9 +8,9 @@ WARNING: Do NOT use in production with multiple workers. Each worker gets
 an isolated in-memory store which breaks rate limiting and JWT blacklisting.
 See README Section 12.1 for details.
 """
+import asyncio
 import json
 import time
-import asyncio
 
 
 class MemoryCacheAdapter:

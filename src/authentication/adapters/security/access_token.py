@@ -3,10 +3,12 @@ Generates and validates stateless JSON Web Tokens (JWT).
 Access Tokens are short-lived (e.g. 15 minutes) and signed using RS256 with asymmetric key pairs to prevent tampering.
 They contain the minimal user claims needed by the API to identify the caller without querying the database.
 """
-import jwt
 from datetime import datetime, timezone
 from uuid import UUID
+
+import jwt
 from uuid6 import uuid7
+
 from src.authentication.core.domain import UserIdentity
 
 

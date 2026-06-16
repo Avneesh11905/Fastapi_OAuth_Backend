@@ -3,26 +3,25 @@ Allows unverified users to request a fresh 6-digit OTP if their previous one exp
 To prevent malicious actors from discovering which emails are registered, this usecase
 fails silently (returns without error) if the email doesn't exist or is already verified.
 """
-from src.authentication.core.ports import UserRepositoryPort
-from src.shared.core.ports.logger import LoggerPort
-from src.authentication.core.ports.email_sender import EmailSenderPort
-from src.shared.core.ports.cache import CachePort
-from typing import Protocol, Any, Generic, TypeVar
+
 import hashlib
-import time
 import secrets
-from src.shared.config import verification_settings
+import time
+
+from src.authentication.core.ports import UserRepositoryPort
+from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.authentication.core.utils import hash_otp
+from src.shared.config import verification_settings
+from src.shared.core.ports.cache import CachePort
+from src.shared.core.ports.logger import LoggerPort
+from src.shared.core.ports.uow import UoWPort
 
 
-class UoWPort(Protocol):
-    session: Any
-
-class RequestNewVerificationEmailUseCase[UoWType: UoWPort]:
+class RequestNewVerificationEmailUseCase[SessionType]:
     """Handles requesting a new verification OTP."""
     
     def __init__(
-        self, user_repo: UserRepositoryPort, logger: LoggerPort, 
+        self, user_repo: UserRepositoryPort[SessionType], logger: LoggerPort, 
         email_sender: EmailSenderPort, cache: CachePort
     ):
         self._user_repo = user_repo
@@ -30,7 +29,7 @@ class RequestNewVerificationEmailUseCase[UoWType: UoWPort]:
         self._email_sender = email_sender
         self._cache = cache
         
-    async def execute(self, uow: UoWType, email: str) -> None:
+    async def execute(self, uow: UoWPort[SessionType], email: str) -> None:
         user = await self._user_repo.find_by_email(uow.session, email)
         if not user:
             # User doesn't exist. Silently return to prevent email enumeration.
@@ -68,3 +67,4 @@ class RequestNewVerificationEmailUseCase[UoWType: UoWPort]:
         
         await self._email_sender.send_verification_email(email, otp)
         await self._logger.info(f"Resent verification OTP to pending user {email}")
+

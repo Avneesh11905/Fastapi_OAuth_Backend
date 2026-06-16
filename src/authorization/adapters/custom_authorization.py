@@ -1,5 +1,7 @@
-from src.authorization.core.ports.authorization_service import AuthorizationPort
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.authorization.core.ports.authorization_service import AuthorizationPort
+
 
 class CustomAuthorizationAdapter(AuthorizationPort[AsyncSession]):
     """

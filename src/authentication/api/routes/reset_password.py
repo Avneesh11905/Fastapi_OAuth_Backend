@@ -3,15 +3,27 @@ Exposes HTTP endpoints for the password reset flow (both requesting a reset and 
 Translates HTTP requests into the corresponding `RequestPasswordResetUseCase` and `ExecutePasswordResetUseCase`.
 """
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.api.usecase_dependencies import get_request_password_reset_usecase, get_execute_password_reset_usecase
-from src.authentication.core.usecases import RequestPasswordResetUseCase, ExecutePasswordResetUseCase
+from src.authentication.api.schemas import (
+    ForgotPasswordRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+)
+from src.authentication.api.usecase_dependencies import (
+    get_execute_password_reset_usecase,
+    get_request_password_reset_usecase,
+)
+from src.authentication.container import get_container
+from src.authentication.core.usecases import (
+    ExecutePasswordResetUseCase,
+    RequestPasswordResetUseCase,
+)
 from src.shared.api.dependencies import limiter
 from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 
-from src.authentication.api.schemas import ForgotPasswordRequest, ResetPasswordRequest, MessageResponse
 router = APIRouter(prefix="/password")
 
 
@@ -20,9 +32,9 @@ async def _execute_forgot_password_in_background(usecase: RequestPasswordResetUs
     try:
         async with SQLAlchemyUnitOfWork() as uow:
             await usecase.execute(uow, email)
-    except Exception:
-        pass  # errors are logged inside the usecase
-
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Background password reset task failed: {e}")
 @router.post("/forgot", response_model=MessageResponse)
 @limiter.limit(rate_limit_settings.DEFAULT_RATE_LIMIT)
 async def forgot_password(
@@ -44,7 +56,6 @@ async def forgot_password(
     """
     # We use TaskRunner so the API responds instantly and stays consistent with
     # all other background operations in this codebase (switchable to Celery)
-    from src.authentication.container import get_container
     get_container().task_runner.add_task(_execute_forgot_password_in_background, usecase, body.email)
     
     # We always return 200 OK to prevent email enumeration

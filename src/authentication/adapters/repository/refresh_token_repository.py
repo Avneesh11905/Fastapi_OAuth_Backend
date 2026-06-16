@@ -1,21 +1,28 @@
 """
 Handles reading and writing Refresh Tokens.
 """
-from datetime import datetime, timedelta, timezone
 import secrets
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
-from uuid6 import uuid7
+
+from pydantic import AnyHttpUrl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid6 import uuid7
+
 from src.authentication.core.domain import UserIdentity
+from src.authentication.core.domain.session import ActiveSession, ClientMetadata
+from src.authentication.core.ports import CachePort
+from src.authentication.core.ports.repository.refresh_token import (
+    RefreshTokenRepositoryPort,
+)
 from src.shared.infrastructure.sql.tables import RefreshToken, User
-from .refresh_token_utils import hash_token, cache_key
-from src.authentication.core.ports.repository.refresh_token import RefreshTokenRepositoryPort
-from src.authentication.core.domain.session import ClientMetadata, ActiveSession
-from typing import TYPE_CHECKING
+
+from .refresh_token_utils import cache_key, hash_token
 
 if TYPE_CHECKING:
-    from src.authentication.core.ports import CachePort
+    pass
 
 class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
     """Implements RefreshTokenRepositoryPort using SQL database."""
@@ -121,8 +128,6 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         if not user:
             return None, None, None
 
-        from pydantic import AnyHttpUrl
-        from typing import cast
         user_identity = UserIdentity(
             id=user.id,
             email=user.email,

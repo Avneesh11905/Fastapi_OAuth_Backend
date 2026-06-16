@@ -1,5 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.shared.infrastructure.sql.connection import AsyncSessionLocal
+
 
 class SQLAlchemyUnitOfWork:
     """

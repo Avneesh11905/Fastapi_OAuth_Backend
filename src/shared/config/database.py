@@ -2,9 +2,12 @@
 Loads PostgreSQL-specific configuration.
 Builds the async SQLAlchemy connection string and manages connection pool settings.
 """
-from .base import _BaseSettings
-from pydantic import field_validator
 import re
+
+from pydantic import field_validator
+
+from .base import _BaseSettings
+
 
 class DatabaseSettings(_BaseSettings):
     DB_ASYNC_URL: str = "sqlite+aiosqlite:///./auth.db"

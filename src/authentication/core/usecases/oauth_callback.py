@@ -5,22 +5,20 @@ It implements an "Account Linking" strategy:
 2. Email match: If the email matches an existing local/OAuth user, link this new provider to their account to avoid duplicate accounts.
 3. Fallback: Create a brand new user.
 """
-from typing import Protocol, Any, TYPE_CHECKING
+from src.shared.core.ports.uow import UoWPort
+from typing import TYPE_CHECKING
+
 from src.authentication.core.domain import UserIdentity
 from src.authentication.core.domain.user import OAuthUserInfo
 
 if TYPE_CHECKING:
-    from src.authentication.core.ports import UserRepositoryPort
-    from src.authentication.core.ports import RefreshTokenRepositoryPort
-    from src.authentication.core.ports.email_sender import EmailSenderPort
-from typing import Generic, TypeVar
+    pass
 from src.authentication.core.domain.session import ClientMetadata
+from src.authentication.core.ports import RefreshTokenRepositoryPort, UserRepositoryPort
+from src.authentication.core.ports.email_sender import EmailSenderPort
 
 
-class UoWPort(Protocol):
-    session: Any
-
-class OAuthCallbackUseCase[UoWType: UoWPort]:
+class OAuthCallbackUseCase[SessionType]:
     """
     Orchestrates the OAuth callback flow:
     1. Upsert user with account-linking (find by provider, email, or create new).
@@ -39,7 +37,7 @@ class OAuthCallbackUseCase[UoWType: UoWPort]:
         self._refresh_repo = refresh_repo
         self._email_sender = email_sender
 
-    async def execute(self, uow: UoWType, user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str, bool]:
+    async def execute(self, uow: UoWPort[SessionType], user_info: OAuthUserInfo, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str, bool]:
         """
         Process an OAuth callback.
 

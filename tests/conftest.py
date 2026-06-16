@@ -1,6 +1,11 @@
+from typing import cast
+from uuid import UUID, uuid4
+
 import pytest
-from uuid import uuid4, UUID
+from pydantic import AnyHttpUrl
+
 from src.authentication.core.domain import UserIdentity
+
 
 class MockUserRepository:
     def __init__(self):
@@ -25,8 +30,6 @@ class MockUserRepository:
         provider: str, oauth_sub: str,
     ) -> UserIdentity:
         user_id = uuid4()
-        from pydantic import AnyHttpUrl
-        from typing import cast
         user = UserIdentity(id=user_id, email=email, name=name, picture=cast(AnyHttpUrl, picture) if picture else None, is_verified=True)
         self.users[user_id] = user
         self.oauth_links.append((user_id, provider, oauth_sub))

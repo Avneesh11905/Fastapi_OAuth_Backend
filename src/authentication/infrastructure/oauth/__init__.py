@@ -1,8 +1,10 @@
 import importlib
 import pkgutil
+
 from src.shared.adapters.logger import AsyncSQLLogger
-from .registry import oauth_registry
+
 from . import providers
+from .registry import oauth_registry
 
 logger = AsyncSQLLogger("OAuthAutoDiscovery")
 

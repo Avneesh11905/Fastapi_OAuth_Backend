@@ -4,18 +4,17 @@ These custom exceptions abstract away HTTP status codes from the core business l
 The API layer catches them and translates them into appropriate HTTP responses.
 """
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from src.shared.adapters.logger import AsyncSQLLogger
-from typing import Any
 
 from src.authentication.core.domain.exceptions import AuthBaseException
+from src.shared.adapters.logger import AsyncSQLLogger
 from src.users.core.domain.exceptions import UserBaseException
 
 logger = AsyncSQLLogger("ExceptionHandlers")
 
-def build_error_response(status_code: int, detail: str | list[dict[str, Any]]) -> JSONResponse:
+def build_error_response(status_code: int, detail: str | list[dict[str, object]] | dict[str, object]) -> JSONResponse:
     """Helper to build a consistent JSON error response format matching FastAPI standards."""
     return JSONResponse(
         status_code=status_code,
@@ -29,7 +28,7 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handles Pydantic validation errors nicely."""
-    errors: list[dict[str, Any]] = []
+    errors: list[dict[str, object]] = []
     for err in exc.errors():
         errors.append({
             "loc": " -> ".join([str(loc) for loc in err.get("loc", [])]),

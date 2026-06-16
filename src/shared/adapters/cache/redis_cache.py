@@ -5,11 +5,10 @@ Implements CachePort using Redis for production-grade shared caching.
 Required when running multiple workers (gunicorn, uvicorn workers) to share
 cache state across processes (rate limiting, JWT blacklisting, response caching).
 """
-from typing import TYPE_CHECKING, cast
 import json
+from typing import cast
 
-if TYPE_CHECKING:
-    from redis.asyncio import Redis
+from redis.asyncio import Redis
 
 
 class RedisCacheAdapter:

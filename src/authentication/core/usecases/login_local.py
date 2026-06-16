@@ -3,30 +3,34 @@ Orchestrates the local authentication flow.
 Responsible for verifying email and password credentials, ensuring the user has 
 verified their email address, and issuing a new refresh token upon success.
 """
+
 from src.authentication.core.domain import UserIdentity
-from src.authentication.core.ports import UserRepositoryPort
-from src.authentication.core.ports import RefreshTokenRepositoryPort
-from src.authentication.core.ports import PasswordHasherPort
+from src.authentication.core.domain.exceptions import (
+    InvalidCredentialsException,
+    UnverifiedEmailException,
+)
+from src.authentication.core.domain.session import ClientMetadata
+from src.authentication.core.ports import (
+    PasswordHasherPort,
+    RefreshTokenRepositoryPort,
+    UserRepositoryPort,
+)
 from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.shared.core.ports.logger import LoggerPort
-from typing import Protocol, Any, Generic, TypeVar
-from src.authentication.core.domain.session import ClientMetadata
-from src.authentication.core.domain.exceptions import InvalidCredentialsException, UnverifiedEmailException
+from src.shared.core.ports.uow import UoWPort
 
-class UoWPort(Protocol):
-    session: Any
 
-class LoginLocalUserUseCase[UoWType: UoWPort]:
+class LoginLocalUserUseCase[SessionType]:
     """Handles user login with email and password."""
 
-    def __init__(self, user_repo: UserRepositoryPort, refresh_repo: RefreshTokenRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, email_sender: EmailSenderPort):
+    def __init__(self, user_repo: UserRepositoryPort[SessionType], refresh_repo: RefreshTokenRepositoryPort[SessionType], hasher: PasswordHasherPort, logger: LoggerPort, email_sender: EmailSenderPort):
         self._user_repo = user_repo
         self._refresh_repo = refresh_repo
         self._hasher = hasher
         self._logger = logger
         self._email_sender = email_sender
 
-    async def execute(self, uow: UoWType, email: str, password: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
+    async def execute(self, uow: UoWPort[SessionType], email: str, password: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
         """
         Authenticate a user. 
         Returns (user, raw_refresh_token).
@@ -70,3 +74,4 @@ class LoginLocalUserUseCase[UoWType: UoWPort]:
         token = await self._refresh_repo.create(uow.session, user.id, client_meta=client_meta)
         await self._logger.info(f"User {user.id} logged in successfully via local auth")
         return user, token
+

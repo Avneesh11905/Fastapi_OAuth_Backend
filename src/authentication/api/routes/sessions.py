@@ -2,17 +2,22 @@
 Exposes HTTP endpoints for managing user sessions (devices).
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request, HTTPException
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.core.usecases import ListSessionsUseCase, RevokeSessionUseCase
-from src.authentication.api.usecase_dependencies import get_list_sessions_usecase, get_revoke_session_usecase
-from src.authentication.api.dependencies import get_current_user
-from src.authentication.api.schemas import SessionResponse
-from src.authentication.core.domain import UserIdentity
-from src.shared.api.dependencies import limiter
-from src.shared.config import rate_limit_settings
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from src.authentication.api.dependencies import get_current_user
+from src.authentication.api.schemas import SessionResponse
+from src.authentication.api.usecase_dependencies import (
+    get_list_sessions_usecase,
+    get_revoke_session_usecase,
+)
+from src.authentication.core.domain import UserIdentity
+from src.authentication.core.domain.exceptions import SessionNotFoundException
+from src.authentication.core.usecases import ListSessionsUseCase, RevokeSessionUseCase
+from src.shared.api.dependencies import limiter
+from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 
 router = APIRouter()
 
@@ -65,7 +70,6 @@ async def revoke_session(
         async with uow:
             await usecase.execute(uow, user.id, family_id)
     except Exception as e:
-        from src.authentication.core.domain.exceptions import SessionNotFoundException
         if isinstance(e, SessionNotFoundException):
             raise HTTPException(status_code=404, detail=str(e))
         raise e

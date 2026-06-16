@@ -3,14 +3,14 @@ Port: Refresh Token Repository
 
 This module defines the interface for reading and writing long-lived refresh tokens.
 """
-from typing import Protocol, TypeVar
-from src.authentication.core.domain import UserIdentity
+from typing import Protocol
 from uuid import UUID
-from src.authentication.core.domain.session import ClientMetadata, ActiveSession
 
-SessionType = TypeVar("SessionType", contravariant=True)
+from src.authentication.core.domain import UserIdentity
+from src.authentication.core.domain.session import ActiveSession, ClientMetadata
 
-class RefreshTokenRepositoryPort(Protocol[SessionType]):
+
+class RefreshTokenRepositoryPort[SessionType](Protocol):
     """Interface for managing long-lived refresh tokens."""
 
     async def validate(self, session: SessionType, token: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity | None, str | None, UUID | None]:

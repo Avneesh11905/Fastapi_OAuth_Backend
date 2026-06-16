@@ -1,17 +1,18 @@
-import pytest
-from src.authentication.core.usecases import OAuthCallbackUseCase
-from src.authentication.core.domain.user import OAuthUserInfo
-from unittest.mock import AsyncMock
-from pydantic import AnyHttpUrl
 from typing import cast
+from unittest.mock import AsyncMock
+
+import pytest
+from pydantic import AnyHttpUrl
+
+from src.authentication.core.domain.user import OAuthUserInfo
+from src.authentication.core.usecases import OAuthCallbackUseCase
+
 
 @pytest.mark.asyncio
 async def test_brand_new_user_signup(user_repo, refresh_token_port, mock_session):
     email_sender = AsyncMock()
     usecase: OAuthCallbackUseCase = OAuthCallbackUseCase(user_repo=user_repo, refresh_repo=refresh_token_port, email_sender=email_sender)
     
-    from pydantic import AnyHttpUrl
-    from typing import cast
     user_info = OAuthUserInfo(
         provider="google",
         sub="google_123",

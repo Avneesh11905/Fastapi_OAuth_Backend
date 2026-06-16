@@ -3,22 +3,38 @@ Tests for the 10 security fixes from the 2026-06-16 audit.
 Each test is tagged with its finding ID for traceability.
 """
 import asyncio
-import pytest
-from uuid import uuid4
-from src.authentication.core.usecases import (
-    VerifyEmailUseCase,
-    RequestNewVerificationEmailUseCase,
-)
-from src.authentication.core.domain.exceptions import (
-    InvalidTokenException,
-    InvalidCredentialsException,
-)
-from tests.conftest import (
-    MockUserRepository, MockCache, MockEmailSender,
-    MockRefreshTokenPort, MockLogger,
-)
 import hashlib
+import hashlib as _hashlib
+import hmac as _hmac
+import time
+from datetime import datetime, timezone
+from uuid import uuid4
 
+import pytest
+from fastapi.testclient import TestClient
+from itsdangerous import URLSafeSerializer
+
+from src import app
+from src.authentication.core.domain.exceptions import (
+    InvalidCredentialsException,
+    InvalidTokenException,
+)
+from src.authentication.core.usecases import (
+    ChangePasswordUseCase,
+    ExecutePasswordResetUseCase,
+    LoginLocalUserUseCase,
+    RequestNewVerificationEmailUseCase,
+    VerifyEmailUseCase,
+)
+from src.shared.config import app_settings, verification_settings
+from tests.conftest import (
+    MockCache,
+    MockEmailSender,
+    MockLogger,
+    MockPasswordHasher,
+    MockRefreshTokenPort,
+    MockUserRepository,
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,11 +49,7 @@ def _make_verify_usecase(user_repo, cache, email_sender=None, refresh_repo=None,
 
 def _seed_pending_otp(cache, email: str, otp: str, attempts: int = 0, expired: bool = False):
     """Directly write an OTP payload into the mock cache."""
-    import time
     email_hash = hashlib.sha256(email.encode()).hexdigest()
-    from src.shared.config import app_settings
-    import hmac as _hmac
-    import hashlib as _hashlib
     secret = app_settings.SESSION_SECRET.encode()
     otp_hash = _hmac.new(secret, otp.encode(), _hashlib.sha256).hexdigest()
     expires_at = int(time.time()) - 1 if expired else int(time.time()) + 300
@@ -123,7 +135,6 @@ async def test_concurrent_otp_attempts_cannot_exceed_limit(mock_session):
     With atomic INCR the total bypasses must be 0.
     Uses asyncio.gather to simulate concurrency within a single event loop.
     """
-    from src.shared.config import verification_settings
     user_repo = MockUserRepository()
     cache = MockCache()
     email = "concurrent@example.com"
@@ -151,8 +162,6 @@ async def test_concurrent_otp_attempts_cannot_exceed_limit(mock_session):
 @pytest.mark.asyncio
 async def test_password_reset_revokes_all_sessions(mock_session):
     """G-03 (AUD-02): All refresh tokens are revoked after password reset."""
-    from src.authentication.core.usecases import ExecutePasswordResetUseCase
-    from tests.conftest import MockPasswordHasher
 
     user_repo = MockUserRepository()
     cache = MockCache()
@@ -183,8 +192,6 @@ async def test_password_reset_revokes_all_sessions(mock_session):
 @pytest.mark.asyncio
 async def test_change_password_revokes_all_sessions(mock_session):
     """G-04 (AUD-03): All refresh tokens are revoked after change-password."""
-    from src.authentication.core.usecases import ChangePasswordUseCase
-    from tests.conftest import MockPasswordHasher
 
     user_repo = MockUserRepository()
     user_id = uuid4()
@@ -212,9 +219,6 @@ async def test_change_password_revokes_all_sessions(mock_session):
 @pytest.mark.asyncio
 async def test_login_sends_restore_email_for_deleted_account(mock_session):
     """G-05 (AUD-04): A soft-deleted account triggers a security notification email."""
-    from src.authentication.core.usecases import LoginLocalUserUseCase
-    from datetime import datetime, timezone
-    from tests.conftest import MockPasswordHasher
 
     user_repo = MockUserRepository()
     email_sender = MockEmailSender()
@@ -274,8 +278,6 @@ async def test_otp_resend_resets_attempt_count(mock_session):
 
 def test_csrf_bad_signature_returns_corrupted_message():
     """G-07 (AUD-07): A tampered CSRF cookie raises 'corrupted', not 'not bound'."""
-    from fastapi.testclient import TestClient
-    from src import app
 
     client = TestClient(app, raise_server_exceptions=False)
     client.cookies.set("refresh_token", "some_token")
@@ -291,11 +293,6 @@ def test_csrf_bad_signature_returns_corrupted_message():
 
 def test_csrf_mismatched_token_returns_not_bound_message():
     """G-07 (AUD-07): A valid-signed but session-mismatched token raises 'not bound'."""
-    import hashlib
-    from itsdangerous import URLSafeSerializer
-    from src.shared.config import app_settings
-    from fastapi.testclient import TestClient
-    from src import app
 
     csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
     wrong_hash = hashlib.sha256(b"different_token").hexdigest()

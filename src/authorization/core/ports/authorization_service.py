@@ -1,8 +1,7 @@
-from typing import Protocol, TypeVar
+from typing import Protocol
 
-SessionType = TypeVar("SessionType", contravariant=True)
 
-class AuthorizationPort(Protocol[SessionType]):
+class AuthorizationPort[SessionType](Protocol):
     """
     Interface for handling Authorization (RBAC, ABAC, PBAC).
     This serves as a boilerplate boundary where you can plug in your own

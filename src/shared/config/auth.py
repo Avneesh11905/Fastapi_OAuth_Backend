@@ -2,8 +2,10 @@
 Loads authentication-specific configuration.
 Defines secrets for JWT signing, expiration times, and algorithm preferences.
 """
-from .base import _BaseSettings
 from pydantic_settings import SettingsConfigDict
+
+from .base import _BaseSettings
+
 
 class TokenSettings(_BaseSettings):
     ACCESS_TOKEN_LIFETIME_MINUTES: int = 15

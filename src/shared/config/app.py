@@ -2,11 +2,11 @@
 Loads generic application configuration from the environment using Pydantic Settings.
 Defines global settings like debug mode, host, port, and CORS origins.
 """
-from .base import _BaseSettings
-from typing import Optional
+from pydantic import field_validator
 from pydantic_settings import SettingsConfigDict
 
-from pydantic import field_validator
+from .base import _BaseSettings
+
 
 class URLSettings(_BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
@@ -28,7 +28,7 @@ class AppSettings(_BaseSettings):
     SESSION_SECRET: str
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
-    CORS_ORIGINS: Optional[str] = None
+    CORS_ORIGINS: str | None = None
     COOKIE_DOMAIN: str | None = None
     COOKIE_PATH: str = "/"
 

@@ -1,5 +1,5 @@
-from .app import URLSettings, AppSettings, CookieSettings, LogSettings
-from .auth import TokenSettings, RateLimitSettings, VerificationSettings
+from .app import AppSettings, CookieSettings, LogSettings, URLSettings
+from .auth import RateLimitSettings, TokenSettings, VerificationSettings
 from .database import DatabaseSettings
 from .email import EmailSettings
 from .oauth import OAuthSettings

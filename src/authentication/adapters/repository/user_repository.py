@@ -1,13 +1,18 @@
 """
 Executes database queries against the User database tables using SQLAlchemy.
 """
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.authentication.core.domain import UserIdentity
-from src.shared.infrastructure.sql.tables import User, UserOAuthAccount, UserPassword
-from src.authentication.core.ports.repository.user import UserRepositoryPort
-from .user_utils import to_identity
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.authentication.core.domain import UserIdentity
+from src.authentication.core.ports.repository.user import UserRepositoryPort
+from src.shared.infrastructure.sql.tables import User, UserOAuthAccount, UserPassword
+
+from .user_utils import to_identity
+
 
 class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
     """Implements UserRepositoryPort using SQLAlchemy."""
@@ -123,8 +128,6 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
 
     async def cleanup_unverified_users(self, session: AsyncSession, hours_old: int = 24) -> int:
         """Delete unverified users older than the specified hours."""
-        from sqlalchemy import delete
-        from datetime import datetime, timedelta, timezone
         
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_old)
         stmt = delete(User).where(User.is_verified.is_(False), User.created_at < cutoff)
@@ -133,8 +136,6 @@ class SQLUserRepositoryAdapter(UserRepositoryPort[AsyncSession]):
 
     async def cleanup_soft_deleted_users(self, session: AsyncSession, days_old: int = 30) -> int:
         """Permanently delete users who were soft-deleted more than `days_old` days ago."""
-        from sqlalchemy import delete
-        from datetime import datetime, timedelta, timezone
         
         cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
         stmt = delete(User).where(User.deleted_at.is_not(None), User.deleted_at < cutoff)

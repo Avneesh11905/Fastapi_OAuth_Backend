@@ -2,8 +2,10 @@
 Loads OAuth provider credentials (Client IDs and Secrets).
 Provides configuration for Google, GitHub, and any future third-party identity providers.
 """
-from .base import _BaseSettings
 from pydantic_settings import SettingsConfigDict
+
+from .base import _BaseSettings
+
 
 class OAuthSettings(_BaseSettings):
     """

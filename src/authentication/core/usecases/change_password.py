@@ -1,22 +1,28 @@
-from typing import Protocol, Any, Generic, TypeVar
-from src.authentication.core.ports import UserRepositoryPort, PasswordHasherPort, RefreshTokenRepositoryPort
-from src.shared.core.ports.logger import LoggerPort
-from src.authentication.core.domain.exceptions import InvalidCredentialsException, SamePasswordException
 from uuid import UUID
 
-class UoWPort(Protocol):
-    session: Any
+from src.authentication.core.domain.exceptions import (
+    InvalidCredentialsException,
+    SamePasswordException,
+)
+from src.authentication.core.ports import (
+    PasswordHasherPort,
+    RefreshTokenRepositoryPort,
+    UserRepositoryPort,
+)
+from src.shared.core.ports.logger import LoggerPort
+from src.shared.core.ports.uow import UoWPort
 
-class ChangePasswordUseCase[UoWType: UoWPort]:
+
+class ChangePasswordUseCase[SessionType]:
     """Handles updating a user's password when they are already authenticated."""
     
-    def __init__(self, user_repo: UserRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, refresh_repo: RefreshTokenRepositoryPort):
+    def __init__(self, user_repo: UserRepositoryPort[SessionType], hasher: PasswordHasherPort, logger: LoggerPort, refresh_repo: RefreshTokenRepositoryPort[SessionType]):
         self._user_repo = user_repo
         self._hasher = hasher
         self._logger = logger
         self._refresh_repo = refresh_repo
 
-    async def execute(self, uow: UoWType, user_id: UUID, current_password: str | None, new_password: str) -> None:
+    async def execute(self, uow: UoWPort[SessionType], user_id: UUID, current_password: str | None, new_password: str) -> None:
         if current_password and current_password == new_password:
             raise SamePasswordException()
             
@@ -36,3 +42,4 @@ class ChangePasswordUseCase[UoWType: UoWPort]:
         await self._refresh_repo.revoke_all_for_user(uow.session, user_id)
         
         await self._logger.info(f"User {user_id} updated their password successfully")
+

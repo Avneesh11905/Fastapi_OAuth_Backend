@@ -2,9 +2,11 @@
 Module: Session
 Contains pure domain entities related to tracking user sessions and devices.
 """
-from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import BaseModel
+
 
 class ClientMetadata(BaseModel):
     """Metadata about the client making the request (e.g., extracted from HTTP headers)."""

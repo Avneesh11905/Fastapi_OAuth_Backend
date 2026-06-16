@@ -2,12 +2,17 @@
 Executes database queries for user profiles using SQLAlchemy.
 Maps raw database rows into pure `UserProfile` domain entities to prevent ORM leakage.
 """
+from datetime import datetime, timezone
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from src.users.core.domain import UserProfile
+
 from src.shared.infrastructure.sql.tables import User
-from uuid import UUID
+from src.users.core.domain import UserProfile
+from src.users.core.domain.exceptions import UserNotFoundException
+
 
 class SQLUserProfileRepository:
     """Implements UserProfileRepositoryPort using SQLAlchemy."""
@@ -41,7 +46,6 @@ class SQLUserProfileRepository:
         result = await session.execute(select(User).options(selectinload(User.oauth_accounts)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
-            from src.users.core.domain.exceptions import UserNotFoundException
             raise UserNotFoundException()
         if name is not None:
             user.name = name
@@ -54,7 +58,6 @@ class SQLUserProfileRepository:
 
     async def delete_user(self, session: AsyncSession, user_id: UUID) -> None:
         """Soft delete a user."""
-        from datetime import datetime, timezone
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user:

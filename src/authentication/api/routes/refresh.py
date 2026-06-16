@@ -4,17 +4,23 @@ Reads the long-lived refresh token from a secure, HttpOnly cookie,
 triggers the `RefreshSessionUseCase`, and returns a fresh short-lived access token.
 """
 from typing import Annotated
-from fastapi import APIRouter, Request, Response, Depends
+
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
-from src.shared.config import rate_limit_settings
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
+from pydantic import BaseModel
+
+from src.authentication.api.dependencies import verify_csrf
 from src.authentication.api.usecase_dependencies import get_refresh_session_usecase
 from src.authentication.core.usecases import RefreshSessionUseCase
-from src.authentication.api.dependencies import verify_csrf
 from src.shared.api.dependencies import limiter
-from src.shared.api.utils import set_refresh_token_cookie, delete_refresh_token_cookie, extract_client_metadata
+from src.shared.api.utils import (
+    delete_refresh_token_cookie,
+    extract_client_metadata,
+    set_refresh_token_cookie,
+)
+from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 
-from pydantic import BaseModel
 
 class TokenResponse(BaseModel):
     access_token: str

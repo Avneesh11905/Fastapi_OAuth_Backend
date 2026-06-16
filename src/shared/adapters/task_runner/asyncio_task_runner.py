@@ -1,10 +1,9 @@
 import asyncio
 import functools
 import inspect
-from typing import Callable, Any, ParamSpec
-from src.shared.core.ports.task_runner import TaskRunnerPort
+from typing import Callable
 
-P = ParamSpec("P")
+from src.shared.core.ports.task_runner import TaskRunnerPort
 
 class AsyncioTaskRunner(TaskRunnerPort):
     """
@@ -15,7 +14,7 @@ class AsyncioTaskRunner(TaskRunnerPort):
     def __init__(self):
         self._background_tasks: set = set()
 
-    def add_task(self, task: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
+    def add_task[**P](self, task: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> None:
         loop = asyncio.get_running_loop()
         if inspect.iscoroutinefunction(task):
             # Async task: runs in the event loop, can await anything freely

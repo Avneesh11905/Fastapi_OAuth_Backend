@@ -3,15 +3,27 @@ Exposes HTTP endpoints for the email verification flow.
 Handles validating the 6-digit OTP sent via email and allowing users to request a new OTP if it expired.
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.api.usecase_dependencies import get_verify_email_usecase, get_request_new_verification_email_usecase
-from src.authentication.core.usecases import VerifyEmailUseCase, RequestNewVerificationEmailUseCase
-from src.shared.api.dependencies import limiter
-from src.shared.config import rate_limit_settings
 
-from src.authentication.api.schemas import VerifyEmailRequest, RequestNewVerificationEmail, MessageResponse
+from fastapi import APIRouter, Depends, Request
+
+from src.authentication.api.schemas import (
+    MessageResponse,
+    RequestNewVerificationEmail,
+    VerifyEmailRequest,
+)
+from src.authentication.api.usecase_dependencies import (
+    get_request_new_verification_email_usecase,
+    get_verify_email_usecase,
+)
+from src.authentication.core.usecases import (
+    RequestNewVerificationEmailUseCase,
+    VerifyEmailUseCase,
+)
+from src.shared.api.dependencies import limiter
 from src.shared.api.utils import build_auth_response
+from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
+
 router = APIRouter()
 
 

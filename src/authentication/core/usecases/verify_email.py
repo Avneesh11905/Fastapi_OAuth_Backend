@@ -3,22 +3,25 @@ Validates a short-lived 6-digit OTP sent to the user's email during registration
 If the OTP matches the one stored in the ephemeral cache (Redis), the user
 is permanently marked as verified in the database, and the Welcome Email is dispatched.
 """
-from src.authentication.core.ports import UserRepositoryPort
-from src.shared.core.ports.logger import LoggerPort
-from src.shared.core.ports.cache import CachePort
-from src.authentication.core.ports.email_sender import EmailSenderPort
-from typing import Protocol, Any, Generic, TypeVar
+from src.shared.core.ports.uow import UoWPort
 import hashlib
 import time
-from src.authentication.core.utils import verify_otp_hash
-from src.authentication.core.ports import RefreshTokenRepositoryPort
+
 from src.authentication.core.domain import UserIdentity
+from src.authentication.core.domain.exceptions import (
+    InvalidCredentialsException,
+    InvalidTokenException,
+)
 from src.authentication.core.domain.session import ClientMetadata
+from src.authentication.core.ports import RefreshTokenRepositoryPort, UserRepositoryPort
+from src.authentication.core.ports.email_sender import EmailSenderPort
+from src.authentication.core.utils import verify_otp_hash
+from src.shared.config import verification_settings
+from src.shared.core.ports.cache import CachePort
+from src.shared.core.ports.logger import LoggerPort
 
-class UoWPort(Protocol):
-    session: Any
 
-class VerifyEmailUseCase[UoWType: UoWPort]:
+class VerifyEmailUseCase[SessionType]:
     """Handles verification of the 6-digit OTP for email verification."""
     
     def __init__(
@@ -31,13 +34,12 @@ class VerifyEmailUseCase[UoWType: UoWPort]:
         self._email_sender = email_sender
         self._refresh_repo = refresh_repo
         
-    async def execute(self, uow: UoWType, email: str, otp: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
+    async def execute(self, uow: UoWPort[SessionType], email: str, otp: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
         """
         Verifies the OTP for the given email using the Redis-First flow.
         If valid, saves the user to the DB and sends welcome email.
         Raises Domain Exceptions if invalid or expired.
         """
-        from src.authentication.core.domain.exceptions import InvalidCredentialsException, InvalidTokenException
         
         # 1. Check if user is in DB
         user = await self._user_repo.find_by_email(uow.session, email)
@@ -66,7 +68,6 @@ class VerifyEmailUseCase[UoWType: UoWPort]:
             raise InvalidTokenException(detail="OTP has expired. Please request a new one.")
             
         # 4. Increment attempt count atomically using the dedicated counter key
-        from src.shared.config import verification_settings
         attempt_key = f"otp_attempts:{email_hash}"
         attempts = await self._cache.incr(attempt_key, ttl=verification_settings.OTP_RESEND_WINDOW_SECONDS)
 

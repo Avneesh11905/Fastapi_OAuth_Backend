@@ -110,10 +110,10 @@ This project enforces the **Unit of Work (UoW)** pattern to manage database tran
 
 ## 2. 🚀 Getting Started
 
-> **Note on Architecture:** Because this template strictly follows Clean Architecture, the default tech stack (PostgreSQL, Redis, Resend) is completely decoupled from the core logic and is **100% swappable**. You can easily replace the database, cache, or email provider by writing a new adapter. See [6. 🛠️ How to Swap Adapters](#6-️-how-to-swap-adapters) for a guide.
+> **Note on Architecture:** Because this template strictly follows Clean Architecture, the default tech stack (PostgreSQL, Redis, Resend) is completely decoupled from the core logic and is **100% swappable**. You can easily replace the database, cache, or email provider by writing a new adapter. See [6. 🛠️ How to Change Core Infrastructure](#6-️-how-to-change-core-infrastructure) for a guide.
 
 ### 2.1 Prerequisites
-- **Python 3.11+**
+- **Python 3.12+**
 - **Database**: PostgreSQL (for production) or SQLite (built-in fallback for local development).
 - **Cache**: Redis (recommended for production) or Memory (built-in fallback for local development).
 
@@ -126,7 +126,7 @@ This project enforces the **Unit of Work (UoW)** pattern to manage database tran
    ```
 2. **Generate Security Keys (RS256)**:
    ```bash
-   python scripts/generate_keys.py
+   uv run python scripts/generate_keys.py
    ```
    *Copy the output and paste it into your `.env` file for `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY`.*
 3. Spin up the entire stack (API, PostgreSQL, Redis) with a single command:
@@ -134,13 +134,12 @@ This project enforces the **Unit of Work (UoW)** pattern to manage database tran
    docker compose up --build
    ```
 
-**Option B: Local Python Setup**
-1. Clone the repository and install dependencies:
+**Option B: Local Python Setup (Using uv)**
+1. Ensure you have [`uv`](https://docs.astral.sh/uv/) installed.
+2. Clone the repository and install dependencies:
    ```bash
-   python -m venv venv
-   # Windows: .\venv\Scripts\activate
-   # Mac/Linux: source venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
+   # Or, if using requirements.txt: uv venv && uv pip install -r requirements.txt
    ```
 2. Copy the configuration:
    ```bash
@@ -148,16 +147,16 @@ This project enforces the **Unit of Work (UoW)** pattern to manage database tran
    ```
 3. **Generate Security Keys (RS256)**:
    ```bash
-   python scripts/generate_keys.py
+   uv run python scripts/generate_keys.py
    ```
 4. **Choose your Cache**: The system defaults to `MemoryCacheAdapter` for local dev (which will log a warning). To use Redis, update `src/shared/container.py` to instantiate `RedisCacheAdapter(client=redis_client)`.
 5. Run database migrations:
    ```bash
-   alembic upgrade head
+   uv run alembic upgrade head
    ```
 6. Start the server:
    ```bash
-   python runserver.py
+   uv run python runserver.py
    ```
 
 ---
@@ -671,7 +670,7 @@ The template is highly decoupled, making unit and integration testing incredibly
 
 To run the entire test suite:
 ```bash
-pytest tests/
+uv run pytest tests/
 ```
 
 - **Core Tests**: Located in `tests/core/`. These test the pure business logic without spinning up a database or HTTP server.

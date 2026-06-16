@@ -1,11 +1,11 @@
-from .user import UserIdentity
 from .exceptions import (
     AuthBaseException,
     EmailAlreadyRegisteredException,
     InvalidCredentialsException,
-    UnverifiedEmailException,
     InvalidTokenException,
+    UnverifiedEmailException,
 )
+from .user import UserIdentity
 
 __all__ = [
     "UserIdentity",

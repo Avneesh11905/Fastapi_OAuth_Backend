@@ -4,16 +4,16 @@ Generates a cryptographically secure 32-byte URL-safe token, stores it in Redis
 with a 15-minute TTL, and dispatches an email to the user with a reset link.
 Fails silently if the email does not exist to prevent enumeration attacks.
 """
+from src.shared.core.ports.uow import UoWPort
 import secrets
-from typing import Protocol, Any, Generic, TypeVar
+
 from src.authentication.core.ports import UserRepositoryPort
 from src.authentication.core.ports.email_sender import EmailSenderPort
+from src.shared.config import verification_settings
 from src.shared.core.ports.cache import CachePort
 
-class UoWPort(Protocol):
-    session: Any
 
-class RequestPasswordResetUseCase[UoWType: UoWPort]:
+class RequestPasswordResetUseCase[SessionType]:
     """Handles generating a reset token and sending the email."""
     
     def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, email_sender: EmailSenderPort, frontend_url: str):
@@ -22,7 +22,7 @@ class RequestPasswordResetUseCase[UoWType: UoWPort]:
         self.email_sender = email_sender
         self.frontend_url = frontend_url
         
-    async def execute(self, uow: UoWType, email: str) -> None:
+    async def execute(self, uow: UoWPort[SessionType], email: str) -> None:
         user = await self.user_repo.find_by_email(uow.session, email)
         if not user or not user.is_verified:
             # Silently return to prevent email enumeration attacks
@@ -33,7 +33,6 @@ class RequestPasswordResetUseCase[UoWType: UoWPort]:
         
         # Store in cache with 15 minute TTL
         # Key: "pwd_reset:{token}" -> Value: user.id
-        from src.shared.config import verification_settings
         await self.cache.set_string(f"pwd_reset:{token}", str(user.id), verification_settings.PASSWORD_RESET_EXPIRY_SECONDS)
         
         reset_url = f"{self.frontend_url}/reset-password?token={token}"

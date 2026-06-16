@@ -1,15 +1,28 @@
-import pytest
-from src.authentication.core.usecases import RegisterLocalUserUseCase, LoginLocalUserUseCase, VerifyEmailUseCase
 import hashlib
+import time
+
+import pytest
+
+from src.authentication.core.domain.exceptions import (
+    EmailAlreadyRegisteredException,
+    InvalidCredentialsException,
+    InvalidTokenException,
+    UnverifiedEmailException,
+)
+from src.authentication.core.usecases import (
+    LoginLocalUserUseCase,
+    RegisterLocalUserUseCase,
+    VerifyEmailUseCase,
+)
+from tests.conftest import MockCache, MockEmailSender
+
 
 @pytest.fixture
 def mock_cache():
-    from tests.conftest import MockCache
     return MockCache()
 
 @pytest.fixture
 def email_sender():
-    from tests.conftest import MockEmailSender
     return MockEmailSender()
 
 @pytest.fixture
@@ -81,7 +94,6 @@ async def test_register_duplicate_email_fails(register_usecase, verify_usecase, 
     await verify_usecase.execute(mock_session, email, otp)
     
     # Now try to register again
-    from src.authentication.core.domain.exceptions import EmailAlreadyRegisteredException
     with pytest.raises(EmailAlreadyRegisteredException, match="Email already registered"):
         await register_usecase.execute(mock_session, email, "pass2", "User 2")
 
@@ -110,7 +122,6 @@ async def test_login_invalid_password_fails(register_usecase, verify_usecase, lo
     otp = email_sender.sent_otps[email]
     await verify_usecase.execute(mock_session, email, otp)
 
-    from src.authentication.core.domain.exceptions import InvalidCredentialsException
     with pytest.raises(InvalidCredentialsException, match="Invalid email or password"):
         await login_usecase.execute(mock_session, email, "wrongpassword")
 
@@ -118,8 +129,6 @@ async def test_login_invalid_password_fails(register_usecase, verify_usecase, lo
 @pytest.mark.asyncio
 async def test_expired_otp_fails(register_usecase, verify_usecase, mock_session, mock_cache, email_sender):
     """G-09: An expired OTP must raise InvalidTokenException, not InvalidCredentialsException."""
-    import time
-    import hashlib
     email = "expired@example.com"
     await register_usecase.execute(mock_session, email, "pass", "User")
     otp = email_sender.sent_otps[email]
@@ -130,7 +139,6 @@ async def test_expired_otp_fails(register_usecase, verify_usecase, mock_session,
     payload["otp_expires_at"] = int(time.time()) - 1
     await mock_cache.set_dict(f"pending_reg:{email_hash}", payload, 900)
 
-    from src.authentication.core.domain.exceptions import InvalidTokenException
     with pytest.raises(InvalidTokenException, match="expired"):
         await verify_usecase.execute(mock_session, email, otp)
 
@@ -140,7 +148,6 @@ async def test_login_unverified_email_returns_403(login_usecase, register_usecas
     """G-10: Unverified users must receive UnverifiedEmailException (maps to 403 HTTP)."""
     email = "unverified@example.com"
     await register_usecase.execute(mock_session, email, "SecurePass", "User")
-    from src.authentication.core.domain.exceptions import UnverifiedEmailException
     with pytest.raises(UnverifiedEmailException):
         await login_usecase.execute(mock_session, email, "SecurePass")
 
@@ -148,7 +155,6 @@ async def test_login_unverified_email_returns_403(login_usecase, register_usecas
 @pytest.mark.asyncio
 async def test_oauth_only_user_cannot_login_locally(login_usecase, mock_session, user_repo):
     """G-11: A user with no local password (OAuth-only) cannot log in via /login/local."""
-    from src.authentication.core.domain.exceptions import InvalidCredentialsException
     await user_repo.create_user_with_password(
         mock_session, "oauth@example.com", "OAuth User", password_hash=None, is_verified=True
     )

@@ -3,11 +3,13 @@ Configures structured asynchronous logging using Loguru.
 Enforces strict JSON formatting in production and readable colorized output in development,
 along with automatic context injection (like request IDs).
 """
-from src.shared.infrastructure.sql.tables import SystemLog
-from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-from src.shared.container import shared_container
 import sys
 from typing import TypedDict
+
+from src.shared.container import shared_container
+from src.shared.infrastructure.sql.connection import AsyncSessionLocal
+from src.shared.infrastructure.sql.tables import SystemLog
+
 
 class LogEntryData(TypedDict):
     level: str
@@ -35,11 +37,9 @@ async def _insert_log_to_db(level: str, source: str, message: str, filename: str
 
 def start_log_worker_task():
     """No-op. Left for compatibility with lifespan."""
-    pass
 
 def stop_log_worker_task():
     """No-op. Left for compatibility with lifespan."""
-    pass
 
 class AsyncSQLLogger:
     """

@@ -1,9 +1,11 @@
 """
 Module: Schemas
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
 
 class _EmailMixin(BaseModel):
     @field_validator("email", mode="before", check_fields=False)

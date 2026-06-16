@@ -3,13 +3,13 @@ Port: User Repository
 
 This module defines the interface for reading and writing user data.
 """
-from typing import Protocol, TypeVar
-from src.authentication.core.domain import UserIdentity
+from typing import Protocol
 from uuid import UUID
 
-SessionType = TypeVar('SessionType', contravariant=True)
+from src.authentication.core.domain import UserIdentity
 
-class UserRepositoryPort(Protocol[SessionType]):
+
+class UserRepositoryPort[SessionType](Protocol):
     """Interface for querying and modifying user records."""
 
     async def find_by_oauth(self, session: SessionType, provider: str, oauth_sub: str) -> UserIdentity | None:

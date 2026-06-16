@@ -2,11 +2,13 @@
 Shared Infrastructure Container
 Instantiates cross-cutting infrastructure adapters exactly once.
 """
-from src.shared.config import email_settings
-from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
-from src.shared.adapters.task_runner import AsyncioTaskRunner
-from src.shared.adapters.email_client import ResendEmailClient
 import logging
+
+from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
+from src.shared.adapters.email_client import ResendEmailClient
+from src.shared.adapters.task_runner import AsyncioTaskRunner
+from src.shared.config import email_settings
+
 
 class SharedContainer:
     def __init__(self):

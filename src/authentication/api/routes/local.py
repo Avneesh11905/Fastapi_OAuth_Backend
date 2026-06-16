@@ -3,19 +3,32 @@ Exposes HTTP endpoints for local email/password registration.
 Parses incoming JSON payloads, validates the data, and triggers the `RegisterLocalUserUseCase`.
 """
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request, Response
 
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.api.usecase_dependencies import get_register_local_usecase, get_login_local_usecase, get_change_password_usecase
-from src.authentication.core.usecases import RegisterLocalUserUseCase, LoginLocalUserUseCase, ChangePasswordUseCase
 from src.authentication.api.dependencies import get_current_user, verify_csrf
+from src.authentication.api.schemas import (
+    ChangePasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    RegisterRequest,
+)
+from src.authentication.api.usecase_dependencies import (
+    get_change_password_usecase,
+    get_login_local_usecase,
+    get_register_local_usecase,
+)
 from src.authentication.core.domain import UserIdentity
-
+from src.authentication.core.usecases import (
+    ChangePasswordUseCase,
+    LoginLocalUserUseCase,
+    RegisterLocalUserUseCase,
+)
 from src.shared.api.dependencies import limiter
-from src.shared.config import rate_limit_settings
-
-from src.authentication.api.schemas import RegisterRequest, LoginRequest, MessageResponse, ChangePasswordRequest
 from src.shared.api.utils import build_auth_response, extract_client_metadata
+from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
+
 router = APIRouter()
 
 

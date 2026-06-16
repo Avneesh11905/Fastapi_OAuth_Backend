@@ -2,9 +2,10 @@
 Module: Tasks
 """
 import asyncio
-from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-from src.shared.adapters.logger import AsyncSQLLogger
+
 from src.authentication.container import get_container
+from src.shared.adapters.logger import AsyncSQLLogger
+from src.shared.infrastructure.sql.connection import AsyncSessionLocal
 
 logger = AsyncSQLLogger("BackgroundTasks")
 _token_cleanup_task: asyncio.Task | None = None

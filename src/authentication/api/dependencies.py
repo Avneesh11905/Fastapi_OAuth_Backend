@@ -1,24 +1,27 @@
 """
 Module: Dependencies
 """
+import hashlib
+
+# --- Security dependencies ---
+import hmac
 from typing import Annotated
-from fastapi import Request, Depends
-from src.authentication.core.ports.security.access_token import AccessTokenPort
-from src.shared.core.ports.cache import CachePort
+
+from fastapi import Depends, Request
+from itsdangerous import URLSafeSerializer
+from itsdangerous.exc import BadSignature
+
+from src.authentication.container import get_container
 from src.authentication.core.domain import UserIdentity
 from src.authentication.core.domain.exceptions import (
     CSRFValidationException,
+    InvalidTokenException,
     NotAuthenticatedException,
-    InvalidTokenException
 )
-
-
-# --- Security dependencies ---
-
-import hmac
-import hashlib
-from itsdangerous import URLSafeSerializer
+from src.authentication.core.ports.security.access_token import AccessTokenPort
 from src.shared.config import app_settings
+from src.shared.core.ports.cache import CachePort
+
 
 async def verify_csrf(request: Request):
     """
@@ -42,7 +45,6 @@ async def verify_csrf(request: Request):
     csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
     refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
     
-    from itsdangerous.exc import BadSignature
     try:
         bound_hash = csrf_signer.loads(csrf_cookie)
         if not hmac.compare_digest(bound_hash, refresh_token_hash):
@@ -52,11 +54,9 @@ async def verify_csrf(request: Request):
 
 
 def get_access_token_adapter() -> AccessTokenPort:
-    from src.authentication.container import get_container
     return get_container().access_token_adapter
 
 def get_cache_adapter() -> CachePort:
-    from src.authentication.container import get_container
     return get_container().cache_adapter
 
 async def get_jwt_payload(

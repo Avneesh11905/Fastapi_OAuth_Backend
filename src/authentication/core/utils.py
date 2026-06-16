@@ -1,6 +1,8 @@
-import hmac
 import hashlib
+import hmac
+
 from src.shared.config import app_settings
+
 
 def hash_otp(otp: str) -> str:
     """Hashes an OTP securely using HMAC-SHA256 with the application's session secret."""

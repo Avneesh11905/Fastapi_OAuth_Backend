@@ -3,21 +3,26 @@ Exposes HTTP endpoints for managing user profiles.
 Handles fetching, updating, and completely deleting a user's account.
 During deletion, it ensures the current session is securely terminated by blacklisting the active JWT.
 """
+from datetime import datetime, timezone
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request, Response
-from src.users.api.schemas import ProfileUpdate
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.api.dependencies import get_current_user, verify_csrf, get_jwt_payload
-from src.authentication.core.domain import UserIdentity
+
+from src.authentication.api.dependencies import (
+    get_current_user,
+    get_jwt_payload,
+    verify_csrf,
+)
 from src.authentication.container import get_container
+from src.authentication.core.domain import UserIdentity
+from src.shared.api.dependencies import limiter
+from src.shared.api.utils import delete_refresh_token_cookie
+from src.shared.config import rate_limit_settings, token_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
+from src.users.api.schemas import ProfileUpdate
 from src.users.container import user_profile_repository
 from src.users.core.domain.exceptions import UserNotFoundException
-from src.shared.config import rate_limit_settings, token_settings
-from src.shared.api.utils import delete_refresh_token_cookie
-from src.shared.api.dependencies import limiter
-from datetime import datetime, timezone
 from src.users.core.domain.profile import UserProfile
-
 
 router = APIRouter()
 

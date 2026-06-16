@@ -3,7 +3,8 @@ Exposes HTTP endpoints for local email/password login.
 Expects application/x-www-form-urlencoded data (OAuth2 standard) and triggers the `LoginLocalUserUseCase`.
 Sets a secure HttpOnly cookie containing the Refresh Token upon success.
 """
-from fastapi import HTTPException, APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
+
 from src.authentication.infrastructure.oauth import PROVIDERS
 from src.shared.api.dependencies import limiter
 from src.shared.config import rate_limit_settings
@@ -22,5 +23,5 @@ async def login(provider: str, request: Request):
 
     return await oauth_client.authorize_redirect(
         request,
-        request.url_for("oauth_callback", provider=provider),
+        str(request.url_for("oauth_callback", provider=provider)),
     )

@@ -4,12 +4,14 @@ Wraps `asyncio.create_task` or a message broker client to ensure "fire-and-forge
 (like sending emails) don't block the HTTP response.
 """
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import delete
-from src.shared.infrastructure.sql.connection import AsyncSessionLocal
-from src.shared.infrastructure.sql.tables import SystemLog
+
 from src.shared.adapters.logger import AsyncSQLLogger
 from src.shared.config import log_settings
+from src.shared.infrastructure.sql.connection import AsyncSessionLocal
+from src.shared.infrastructure.sql.tables import SystemLog
 
 logger = AsyncSQLLogger("LogCleanupTask")
 _cleanup_task: asyncio.Task | None = None

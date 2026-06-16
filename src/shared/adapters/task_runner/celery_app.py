@@ -1,5 +1,6 @@
-from celery import Celery # type: ignore
 import os
+
+from celery import Celery  # type: ignore
 
 redis_url = os.environ.get("CACHE_URL", "redis://localhost:6379/0")
 

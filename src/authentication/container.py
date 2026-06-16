@@ -5,35 +5,43 @@ By centralizing dependencies here, we avoid scattered "magic" registries while k
 our core usecases purely dependent on interfaces (Ports).
 """
 
-from src.shared.config import url_settings, email_settings, app_settings
-from src.authentication.adapters.security.access_token import JWTAccessTokenAdapter
-from src.authentication.adapters.repository.refresh_token_repository import DBRefreshTokenRepositoryAdapter
+import threading
+from pathlib import Path
 
-from src.authentication.adapters.repository.user_repository import SQLUserRepositoryAdapter
-from src.authentication.core.usecases import (
-    OAuthCallbackUseCase,
-    RegisterLocalUserUseCase,
-    LoginLocalUserUseCase,
-    RequestPasswordResetUseCase,
-    ExecutePasswordResetUseCase,
-    RequestNewVerificationEmailUseCase,
-    VerifyEmailUseCase,
-    LogoutUseCase,
-    RefreshSessionUseCase,
-    ListSessionsUseCase,
-    RevokeSessionUseCase
-)
-from src.authentication.core.usecases.change_password import ChangePasswordUseCase
-from src.authentication.core.ports import ClaimsProviderPort
-from src.shared.core.ports.cache import CachePort
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.authentication.adapters.email_sender import AuthEmailService
+from src.authentication.adapters.repository.refresh_token_repository import (
+    DBRefreshTokenRepositoryAdapter,
+)
+from src.authentication.adapters.repository.user_repository import (
+    SQLUserRepositoryAdapter,
+)
+from src.authentication.adapters.security.access_token import JWTAccessTokenAdapter
+from src.authentication.adapters.security.claims_provider import (
+    NullClaimsProviderAdapter,
+)
 from src.authentication.adapters.security.password_hasher import Argon2PasswordHasher
-from src.shared.config import token_settings
+from src.authentication.core.ports import ClaimsProviderPort
+from src.authentication.core.usecases import (
+    ExecutePasswordResetUseCase,
+    ListSessionsUseCase,
+    LoginLocalUserUseCase,
+    LogoutUseCase,
+    OAuthCallbackUseCase,
+    RefreshSessionUseCase,
+    RegisterLocalUserUseCase,
+    RequestNewVerificationEmailUseCase,
+    RequestPasswordResetUseCase,
+    RevokeSessionUseCase,
+    VerifyEmailUseCase,
+)
+from src.authentication.core.usecases.change_password import ChangePasswordUseCase
+from src.authorization.container import custom_claims_provider
 from src.shared.adapters.logger import AsyncSQLLogger
-from pathlib import Path
-import threading
+from src.shared.config import app_settings, email_settings, token_settings, url_settings
+from src.shared.container import shared_container
+from src.shared.core.ports.cache import CachePort
 
 
 class Container:
@@ -47,8 +55,6 @@ class Container:
             lifetime_minutes=token_settings.ACCESS_TOKEN_LIFETIME_MINUTES,
         )
 
-        from src.shared.container import shared_container
-        
         self.cache_adapter: CachePort = shared_container.cache_adapter
         self.task_runner = shared_container.task_runner
         self.email_client = shared_container.email_client
@@ -79,20 +85,18 @@ class Container:
         # The Authentication domain automatically checks if the Authorization domain 
         # has exported a custom claims provider for RBAC systems.
         try:
-            from src.authorization.container import custom_claims_provider
             self.claims_provider: ClaimsProviderPort = custom_claims_provider # type: ignore
         except ImportError:
             # Fallback if the developer hasn't created one
-            from src.authentication.adapters.security.claims_provider import NullClaimsProviderAdapter
             self.claims_provider = NullClaimsProviderAdapter()
 
-        self.oauth_callback_usecase: OAuthCallbackUseCase[SQLAlchemyUnitOfWork] = OAuthCallbackUseCase(
+        self.oauth_callback_usecase: OAuthCallbackUseCase[AsyncSession] = OAuthCallbackUseCase(
             user_repo=self.user_repo,
             refresh_repo=self.refresh_token_repo,
             email_sender=self.email_sender,
         )
 
-        self.register_local_usecase: RegisterLocalUserUseCase[SQLAlchemyUnitOfWork] = RegisterLocalUserUseCase(
+        self.register_local_usecase: RegisterLocalUserUseCase[AsyncSession] = RegisterLocalUserUseCase(
             user_repo=self.user_repo,
             hasher=self.password_hasher,
             logger=AsyncSQLLogger("RegisterLocalUseCase"),
@@ -100,7 +104,7 @@ class Container:
             cache=self.cache_adapter,
         )
 
-        self.login_local_usecase: LoginLocalUserUseCase[SQLAlchemyUnitOfWork] = LoginLocalUserUseCase(
+        self.login_local_usecase: LoginLocalUserUseCase[AsyncSession] = LoginLocalUserUseCase(
             user_repo=self.user_repo,
             refresh_repo=self.refresh_token_repo,
             hasher=self.password_hasher,
@@ -108,14 +112,14 @@ class Container:
             email_sender=self.email_sender,
         )
 
-        self.request_new_verification_email_usecase: RequestNewVerificationEmailUseCase[SQLAlchemyUnitOfWork] = RequestNewVerificationEmailUseCase(
+        self.request_new_verification_email_usecase: RequestNewVerificationEmailUseCase[AsyncSession] = RequestNewVerificationEmailUseCase(
             user_repo=self.user_repo,
             logger=AsyncSQLLogger("RequestNewVerificationEmailUseCase"),
             email_sender=self.email_sender,
             cache=self.cache_adapter,
         )
 
-        self.verify_email_usecase: VerifyEmailUseCase[SQLAlchemyUnitOfWork] = VerifyEmailUseCase(
+        self.verify_email_usecase: VerifyEmailUseCase[AsyncSession] = VerifyEmailUseCase(
             user_repo=self.user_repo,
             cache=self.cache_adapter,
             logger=AsyncSQLLogger("VerifyEmailUseCase"),
@@ -123,40 +127,40 @@ class Container:
             refresh_repo=self.refresh_token_repo,
         )
 
-        self.logout_usecase: LogoutUseCase[SQLAlchemyUnitOfWork] = LogoutUseCase(
+        self.logout_usecase: LogoutUseCase[AsyncSession] = LogoutUseCase(
             refresh_repo=self.refresh_token_repo,
             cache=self.cache_adapter,
         )
 
-        self.refresh_session_usecase: RefreshSessionUseCase[SQLAlchemyUnitOfWork] = RefreshSessionUseCase(
+        self.refresh_session_usecase: RefreshSessionUseCase[AsyncSession] = RefreshSessionUseCase(
             refresh_repo=self.refresh_token_repo,
             access_token=self.access_token_adapter,
             claims_provider=self.claims_provider,
         )
 
-        self.request_password_reset_usecase: RequestPasswordResetUseCase[SQLAlchemyUnitOfWork] = RequestPasswordResetUseCase(
+        self.request_password_reset_usecase: RequestPasswordResetUseCase[AsyncSession] = RequestPasswordResetUseCase(
             user_repo=self.user_repo,
             cache=self.cache_adapter,
             email_sender=self.email_sender,
             frontend_url=url_settings.FRONTEND_URL,
         )
 
-        self.execute_password_reset_usecase: ExecutePasswordResetUseCase[SQLAlchemyUnitOfWork] = ExecutePasswordResetUseCase(
+        self.execute_password_reset_usecase: ExecutePasswordResetUseCase[AsyncSession] = ExecutePasswordResetUseCase(
             user_repo=self.user_repo,
             cache=self.cache_adapter,
             hasher=self.password_hasher,
             refresh_repo=self.refresh_token_repo,
         )
 
-        self.list_sessions_usecase: ListSessionsUseCase[SQLAlchemyUnitOfWork] = ListSessionsUseCase(
+        self.list_sessions_usecase: ListSessionsUseCase[AsyncSession] = ListSessionsUseCase(
             refresh_repo=self.refresh_token_repo,
         )
 
-        self.revoke_session_usecase: RevokeSessionUseCase[SQLAlchemyUnitOfWork] = RevokeSessionUseCase(
+        self.revoke_session_usecase: RevokeSessionUseCase[AsyncSession] = RevokeSessionUseCase(
             refresh_repo=self.refresh_token_repo,
         )
 
-        self.change_password_usecase: ChangePasswordUseCase[SQLAlchemyUnitOfWork] = ChangePasswordUseCase(
+        self.change_password_usecase: ChangePasswordUseCase[AsyncSession] = ChangePasswordUseCase(
             user_repo=self.user_repo,
             hasher=self.password_hasher,
             logger=AsyncSQLLogger("ChangePasswordUseCase"),

@@ -4,16 +4,21 @@ When Google/GitHub sends the user back, this route captures the authorization co
 exchanges it for user details, and triggers the `OAuthCallbackUseCase` to establish a session.
 """
 from typing import Annotated
-from fastapi import APIRouter, Request, Depends
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from src.authentication.infrastructure.oauth import PROVIDERS, PARSERS
-from src.authentication.api.usecase_dependencies import get_oauth_callback_usecase
-from src.authentication.core.usecases import OAuthCallbackUseCase
 
-from src.authentication.core.domain.exceptions import InvalidProviderException, OAuthFailedException
+from fastapi import APIRouter, Depends, Request
+
+from src.authentication.api.usecase_dependencies import get_oauth_callback_usecase
+from src.authentication.core.domain.exceptions import (
+    InvalidProviderException,
+    OAuthFailedException,
+)
+from src.authentication.core.usecases import OAuthCallbackUseCase
+from src.authentication.infrastructure.oauth import PARSERS, PROVIDERS
 from src.shared.api.dependencies import limiter
-from src.shared.config import rate_limit_settings
 from src.shared.api.utils import build_auth_redirect, extract_client_metadata
+from src.shared.config import rate_limit_settings
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
+
 router = APIRouter()
 
 

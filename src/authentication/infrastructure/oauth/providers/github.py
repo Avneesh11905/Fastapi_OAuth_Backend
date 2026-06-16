@@ -1,9 +1,9 @@
 """
 Module: Github
 """
+from src.authentication.core.domain.user import OAuthUserInfo
 from src.authentication.infrastructure.oauth.registry import oauth_registry
 from src.shared.config import oauth_settings
-from src.authentication.core.domain.user import OAuthUserInfo
 
 client_id, client_secret = oauth_settings.get_credentials("github")
 

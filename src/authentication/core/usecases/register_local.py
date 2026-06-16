@@ -4,23 +4,21 @@ Responsible for checking email uniqueness, hashing the user's password,
 persisting the new user, and triggering the OTP email verification process.
 The user is created immediately but flagged as `is_verified=False` until OTP succeeds.
 """
-from src.authentication.core.ports import UserRepositoryPort
-from src.authentication.core.ports import PasswordHasherPort
-from src.shared.core.ports.logger import LoggerPort
-from src.authentication.core.ports.email_sender import EmailSenderPort
-from src.shared.core.ports.cache import CachePort
-from typing import Protocol, Any, Generic, TypeVar
+from src.shared.core.ports.uow import UoWPort
 import hashlib
-import time
 import secrets
-from src.shared.config import verification_settings
+import time
+
+from src.authentication.core.domain import EmailAlreadyRegisteredException
+from src.authentication.core.ports import PasswordHasherPort, UserRepositoryPort
+from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.authentication.core.utils import hash_otp
+from src.shared.config import verification_settings
+from src.shared.core.ports.cache import CachePort
+from src.shared.core.ports.logger import LoggerPort
 
 
-class UoWPort(Protocol):
-    session: Any
-
-class RegisterLocalUserUseCase[UoWType: UoWPort]:
+class RegisterLocalUserUseCase[SessionType]:
     """Handles user registration with email and password."""
 
     def __init__(
@@ -35,7 +33,7 @@ class RegisterLocalUserUseCase[UoWType: UoWPort]:
         self._email_sender = email_sender
         self._cache = cache
 
-    async def execute(self, uow: UoWType, email: str, password: str, name: str | None) -> None:
+    async def execute(self, uow: UoWPort[SessionType], email: str, password: str, name: str | None) -> None:
         """
         Register a new user and trigger email verification.
         Saves the pending registration data to Redis (Redis-First Flow).
@@ -45,7 +43,6 @@ class RegisterLocalUserUseCase[UoWType: UoWPort]:
         existing = await self._user_repo.find_by_email(uow.session, email)
         if existing and existing.is_verified:
             await self._logger.warning(f"Registration failed: Email {email} already registered and verified")
-            from src.authentication.core.domain import EmailAlreadyRegisteredException
             raise EmailAlreadyRegisteredException()
 
         # 2. Hash password securely

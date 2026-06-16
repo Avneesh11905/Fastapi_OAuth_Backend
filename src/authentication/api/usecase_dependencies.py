@@ -8,20 +8,20 @@ between Hexagonal Architecture and the FastAPI ecosystem.
 """
 from src.authentication.container import get_container
 from src.authentication.core.usecases import (
-    RegisterLocalUserUseCase,
-    LoginLocalUserUseCase,
-    OAuthCallbackUseCase,
-    RequestNewVerificationEmailUseCase,
-    VerifyEmailUseCase,
-    RequestPasswordResetUseCase,
     ExecutePasswordResetUseCase,
-    LogoutUseCase,
-    RefreshSessionUseCase,
     ListSessionsUseCase,
-    RevokeSessionUseCase
+    LoginLocalUserUseCase,
+    LogoutUseCase,
+    OAuthCallbackUseCase,
+    RefreshSessionUseCase,
+    RegisterLocalUserUseCase,
+    RequestNewVerificationEmailUseCase,
+    RequestPasswordResetUseCase,
+    RevokeSessionUseCase,
+    VerifyEmailUseCase,
 )
-
 from src.authentication.core.usecases.change_password import ChangePasswordUseCase
+
 
 def get_register_local_usecase() -> RegisterLocalUserUseCase:
     return get_container().register_local_usecase

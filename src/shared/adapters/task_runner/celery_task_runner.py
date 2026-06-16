@@ -1,14 +1,13 @@
-from typing import Callable, Any, ParamSpec
-from src.shared.core.ports.task_runner import TaskRunnerPort
+from typing import Callable
 
-P = ParamSpec("P")
+from src.shared.core.ports.task_runner import TaskRunnerPort
 
 class CeleryTaskRunner(TaskRunnerPort):
     """
     Implements TaskRunnerPort by offloading tasks to Celery.
     Note: The 'task' passed here must be a registered Celery task (e.g. decorated with @celery_app.task)
     """
-    def add_task(self, task: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
+    def add_task[**P](self, task: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> None:
         if hasattr(task, "delay"):
             task.delay(*args, **kwargs)
         else:

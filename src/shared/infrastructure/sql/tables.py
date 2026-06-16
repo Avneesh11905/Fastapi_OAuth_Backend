@@ -3,13 +3,26 @@ Defines the global declarative base and centralized SQLAlchemy ORM models.
 Stores the schema definitions for Users, RefreshTokens, and OAuthAccounts.
 Centralized here because multiple domains (Auth, Users) need to query these underlying tables.
 """
-from typing import Optional
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import UUID
-from uuid6 import uuid7
-from .connection import Base
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Uuid, UniqueConstraint, text, Integer, func, Index
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
+
+from .connection import Base
 
 
 class User(Base):

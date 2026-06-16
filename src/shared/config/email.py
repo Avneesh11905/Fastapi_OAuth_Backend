@@ -2,8 +2,10 @@
 Loads email provider configuration (e.g., Resend API keys).
 Specifies the default sender address and fallback template themes.
 """
-from .base import _BaseSettings
 from pydantic_settings import SettingsConfigDict
+
+from .base import _BaseSettings
+
 
 class EmailSettings(_BaseSettings):
     """Email settings."""

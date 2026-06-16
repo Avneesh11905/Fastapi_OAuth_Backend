@@ -3,12 +3,12 @@ Provides global FastAPI dependencies.
 Includes components like the Redis-based rate limiter (SlowAPI), which protects all endpoints from abuse,
 and common pagination or sorting extractors used across multiple domains.
 """
-from slowapi import Limiter
 from fastapi import Request
-from src.shared.config import database_settings, app_settings
+from slowapi import Limiter
 
-from src.shared.container import shared_container
 from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
+from src.shared.config import app_settings, database_settings
+from src.shared.container import shared_container
 
 storage_uri = "memory://" if isinstance(shared_container.cache_adapter, MemoryCacheAdapter) else database_settings.CACHE_URL
 

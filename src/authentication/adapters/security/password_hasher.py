@@ -2,8 +2,10 @@
 Provides secure, one-way cryptographic hashing for passwords using Argon2id.
 Argon2id is currently the OWASP recommended algorithm because it resists both GPU cracking and side-channel timing attacks.
 """
-from passlib.context import CryptContext # type: ignore
 import asyncio
+
+from passlib.context import CryptContext  # type: ignore
+
 
 class Argon2PasswordHasher:
     def __init__(self):

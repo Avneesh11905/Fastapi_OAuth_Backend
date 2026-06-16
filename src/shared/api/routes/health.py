@@ -2,12 +2,17 @@
 Exposes liveness and readiness probes for orchestrators (like Kubernetes or Docker Compose).
 Checks connectivity to the PostgreSQL database and Redis cache to ensure the application is healthy.
 """
-from fastapi import APIRouter, Depends
 from typing import Annotated
-from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
-from sqlalchemy import text
+
+import redis.asyncio as redis
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+
+from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
 from src.shared.config import database_settings
+from src.shared.container import shared_container
+from src.shared.infrastructure.sql.uow import SQLAlchemyUnitOfWork, get_uow
 
 router = APIRouter()
 
@@ -25,14 +30,11 @@ async def health_check(uow: Annotated[SQLAlchemyUnitOfWork, Depends(get_uow)]):
         db_status = "error"
         
     # Check Redis/Cache
-    from src.shared.container import shared_container
-    from src.shared.adapters.cache.memory_cache import MemoryCacheAdapter
     
     cache_status = "ok"
     if not isinstance(shared_container.cache_adapter, MemoryCacheAdapter):
         if database_settings.CACHE_URL.startswith("redis"):
             try:
-                import redis.asyncio as redis
                 client = redis.from_url(database_settings.CACHE_URL)
                 await client.ping()
                 cache_status = "ok"

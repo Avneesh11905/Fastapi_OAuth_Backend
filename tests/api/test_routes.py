@@ -1,19 +1,26 @@
+import hashlib
+import uuid
+from unittest.mock import AsyncMock, patch
+
 import pytest
+from fastapi import Depends, Request
+from fastapi.responses import RedirectResponse
 from fastapi.testclient import TestClient
+from itsdangerous import URLSafeSerializer
+from limits.storage import MemoryStorage
 
-
+import src.authentication.infrastructure.oauth as oauth_infra
 from src import app
 from src.authentication.api import usecase_dependencies as deps
-from src.authentication.api.dependencies import get_current_user
-from src.shared.api.dependencies import limiter
-
-from src.shared.infrastructure.sql.connection import get_db
+from src.authentication.api.dependencies import get_current_user, get_jwt_payload
 from src.authentication.core.domain.user import UserIdentity
-from unittest.mock import AsyncMock, patch
-from src.shared.config import rate_limit_settings
-import hashlib
-from itsdangerous import URLSafeSerializer
-from src.shared.config import app_settings
+from src.authorization.api.dependencies import require_permission, require_role
+from src.authorization.container import custom_claims_provider
+from src.shared.api.dependencies import limiter
+from src.shared.config import app_settings, rate_limit_settings
+from src.shared.infrastructure.sql.connection import get_db
+from src.users.core.domain.profile import UserProfile
+
 
 def _get_valid_csrf(refresh_token: str) -> str:
     csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
@@ -90,8 +97,6 @@ def test_client(mock_usecases):
             pass
 
     app.dependency_overrides[get_db] = lambda: DummySession()
-    from src.authentication.api.dependencies import get_jwt_payload
-    import uuid
     mock_id = uuid.UUID('12345678-1234-5678-1234-567812345678')
     app.dependency_overrides[get_current_user] = lambda: UserIdentity(id=mock_id, email="test@test.com", is_verified=True)
     app.dependency_overrides[get_jwt_payload] = lambda: {"jti": "mock_jti", "exp": 9999999999, "_user_obj": UserIdentity(id=mock_id, email="test@test.com", is_verified=True)}
@@ -100,8 +105,6 @@ def test_client(mock_usecases):
         app.dependency_overrides[dep] = lambda mock_obj=mock_obj: mock_obj
         
     # Mocking profile repo and oauth clients
-    import src.authentication.infrastructure.oauth as oauth_infra
-    from src.users.core.domain.profile import UserProfile
     
     mock_profile_repo = AsyncMock()
     mock_profile = UserProfile(id="123", email="test@test.com", name="Test", picture=None, receive_updates=False, login_methods=["local"])
@@ -109,11 +112,10 @@ def test_client(mock_usecases):
     mock_profile_repo.update_profile.return_value = mock_profile
     
     class MockOAuthClient:
-        async def authorize_redirect(self, request, redirect_uri):
-            from fastapi.responses import RedirectResponse
+        async def authorize_redirect(self, request: Request, redirect_uri: str, **kwargs) -> object:
             return RedirectResponse("https://provider.com/auth")
-        async def authorize_access_token(self, request):
-            return "mock_token"
+        async def authorize_access_token(self, request: Request, **kwargs) -> dict[str, object]:
+            return {"token": "mock_token"}
             
     oauth_infra.PROVIDERS["google"] = MockOAuthClient()
     oauth_infra.PARSERS["google"] = AsyncMock(return_value=None)
@@ -179,7 +181,6 @@ def test_logout(test_client):
     assert response.status_code == 200
 
 def test_oauth_login_redirect(test_client):
-    import uuid
     response = test_client.get(
         "/auth/login/google", 
         follow_redirects=False,
@@ -242,7 +243,6 @@ def test_delete_me(test_client):
     assert response.status_code == 204
 
 def test_rate_limiting(test_client):
-    from limits.storage import MemoryStorage
     original_storage = limiter._storage
     limiter._storage = MemoryStorage()
     limiter.enabled = True
@@ -261,10 +261,6 @@ def test_rate_limiting(test_client):
         limiter._storage = original_storage
 
 def test_authorization_dependencies(test_client):
-    from fastapi import Depends
-    from src.authorization.api.dependencies import require_role, require_permission
-    from src.authorization.container import custom_claims_provider
-    from unittest.mock import AsyncMock
 
     # Add a dummy protected route to the test app
     @test_client.app.get("/test/admin-only", dependencies=[Depends(require_role("admin"))])
@@ -276,7 +272,6 @@ def test_authorization_dependencies(test_client):
         return {"msg": "ok"}
 
     # Mock the current JWT payload for roles
-    from src.authentication.api.dependencies import get_jwt_payload
     
     # 1. Test role missing
     test_client.app.dependency_overrides[get_jwt_payload] = lambda: {"roles": ["user"], "sub": "123"}
@@ -330,7 +325,6 @@ def test_refresh_without_cookie_returns_204(test_client):
 
 def test_protected_endpoint_without_bearer_returns_401(test_client):
     """Requests to protected endpoints with no Authorization header -> 401."""
-    from src.authentication.api.dependencies import get_current_user, get_jwt_payload
     saved = test_client.app.dependency_overrides.pop(get_jwt_payload, None)
     saved2 = test_client.app.dependency_overrides.pop(get_current_user, None)
     try:
