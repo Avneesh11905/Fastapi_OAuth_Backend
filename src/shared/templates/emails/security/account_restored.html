@@ -1,0 +1,9 @@
+{% extends "layouts/base_" ~ theme ~ ".html" %}
+{% block header_title %}Account Restored for {{ proj_name }}{% endblock %}
+{% block content %}
+<p>Hello {{ name }},</p>
+<p>This is a security alert to confirm that your <strong>{{ proj_name }}</strong> account has been successfully restored.</p>
+<p>Your account was previously scheduled for deletion, but your recent login has cancelled this request and fully reactivated your profile.</p>
+<p><strong>Didn't do this?</strong></p>
+<p>If you did not authorize this action or recently log in, your account may have been accessed by someone else. Please reset your password or contact our support team immediately to secure your data.</p>
+{% endblock %}
