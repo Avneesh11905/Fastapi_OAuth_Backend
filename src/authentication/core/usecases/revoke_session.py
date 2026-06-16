@@ -7,8 +7,8 @@ from uuid import UUID
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class RevokeSessionUseCase(Generic[UoWType]):
+
+class RevokeSessionUseCase[UoWType: UoWPort]:
     """Revokes a specific session family, logging out that device."""
     
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort):

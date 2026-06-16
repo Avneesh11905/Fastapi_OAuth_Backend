@@ -12,8 +12,8 @@ from src.authentication.core.ports import RefreshTokenRepositoryPort
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class ExecutePasswordResetUseCase(Generic[UoWType]):
+
+class ExecutePasswordResetUseCase[UoWType: UoWPort]:
     """Handles validating the token and updating the password."""
     
     def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, hasher: PasswordHasherPort, refresh_repo: RefreshTokenRepositoryPort):

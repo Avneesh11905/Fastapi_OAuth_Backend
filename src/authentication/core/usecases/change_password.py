@@ -6,9 +6,8 @@ from uuid import UUID
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
 
-class ChangePasswordUseCase(Generic[UoWType]):
+class ChangePasswordUseCase[UoWType: UoWPort]:
     """Handles updating a user's password when they are already authenticated."""
     
     def __init__(self, user_repo: UserRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, refresh_repo: RefreshTokenRepositoryPort):

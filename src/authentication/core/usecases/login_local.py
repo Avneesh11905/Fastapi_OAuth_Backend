@@ -15,8 +15,8 @@ from src.authentication.core.domain.exceptions import InvalidCredentialsExceptio
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class LoginLocalUserUseCase(Generic[UoWType]):
+
+class LoginLocalUserUseCase[UoWType: UoWPort]:
     """Handles user login with email and password."""
 
     def __init__(self, user_repo: UserRepositoryPort, refresh_repo: RefreshTokenRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, email_sender: EmailSenderPort):

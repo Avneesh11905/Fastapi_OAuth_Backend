@@ -17,8 +17,8 @@ from src.authentication.core.utils import hash_otp
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class RequestNewVerificationEmailUseCase(Generic[UoWType]):
+
+class RequestNewVerificationEmailUseCase[UoWType: UoWPort]:
     """Handles requesting a new verification OTP."""
     
     def __init__(

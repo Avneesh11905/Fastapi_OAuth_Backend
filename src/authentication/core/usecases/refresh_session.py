@@ -14,8 +14,8 @@ from src.authentication.core.ports.security.claims_provider import ClaimsProvide
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class RefreshSessionUseCase(Generic[UoWType]):
+
+class RefreshSessionUseCase[UoWType: UoWPort]:
     """Handles validating a refresh token and issuing a new access token."""
     
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort, access_token: AccessTokenPort, claims_provider: ClaimsProviderPort):

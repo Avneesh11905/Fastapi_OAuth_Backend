@@ -8,8 +8,8 @@ from uuid import UUID
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class ListSessionsUseCase(Generic[UoWType]):
+
+class ListSessionsUseCase[UoWType: UoWPort]:
     """Lists all active sessions for a user."""
     
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort):

@@ -12,8 +12,8 @@ from src.shared.core.ports.cache import CachePort
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class RequestPasswordResetUseCase(Generic[UoWType]):
+
+class RequestPasswordResetUseCase[UoWType: UoWPort]:
     """Handles generating a reset token and sending the email."""
     
     def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, email_sender: EmailSenderPort, frontend_url: str):

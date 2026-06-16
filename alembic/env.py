@@ -22,7 +22,10 @@ target_metadata = Base.metadata
 
 # Override the sqlalchemy.url with the one from our config.
 # We use the ASYNC URL because we are going to use async_engine_from_config
-config.set_main_option("sqlalchemy.url", database_settings.DB_ASYNC_URL)
+
+# Escape the '%' symbol specifically for Alembic's configparser
+alembic_url = database_settings.DB_ASYNC_URL.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", alembic_url)
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""

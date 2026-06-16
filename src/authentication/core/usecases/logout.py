@@ -13,8 +13,8 @@ from src.shared.core.ports.cache import CachePort
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class LogoutUseCase(Generic[UoWType]):
+
+class LogoutUseCase[UoWType: UoWPort]:
     """Handles logging out a user by revoking the refresh token and blacklisting the access token."""
     
     def __init__(self, refresh_repo: RefreshTokenRepositoryPort, cache: CachePort):

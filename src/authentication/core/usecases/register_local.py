@@ -19,8 +19,8 @@ from src.authentication.core.utils import hash_otp
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class RegisterLocalUserUseCase(Generic[UoWType]):
+
+class RegisterLocalUserUseCase[UoWType: UoWPort]:
     """Handles user registration with email and password."""
 
     def __init__(

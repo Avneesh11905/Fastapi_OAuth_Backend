@@ -19,8 +19,8 @@ from src.authentication.core.domain.session import ClientMetadata
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class OAuthCallbackUseCase(Generic[UoWType]):
+
+class OAuthCallbackUseCase[UoWType: UoWPort]:
     """
     Orchestrates the OAuth callback flow:
     1. Upsert user with account-linking (find by provider, email, or create new).

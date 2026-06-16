@@ -17,8 +17,8 @@ from src.authentication.core.domain.session import ClientMetadata
 
 class UoWPort(Protocol):
     session: Any
-UoWType = TypeVar("UoWType", bound=UoWPort)
-class VerifyEmailUseCase(Generic[UoWType]):
+
+class VerifyEmailUseCase[UoWType: UoWPort]:
     """Handles verification of the 6-digit OTP for email verification."""
     
     def __init__(
