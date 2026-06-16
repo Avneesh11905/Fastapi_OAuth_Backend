@@ -56,11 +56,15 @@ class RequestNewVerificationEmailUseCase(Generic[UoWType]):
             "otp_expires_at": otp_expires_at,
             "pending_password_hash": existing_payload.get("pending_password_hash"),
             "pending_name": existing_payload.get("pending_name"),
-            "attempts": existing_payload.get("attempts", 0)
+            "attempts": 0
         }
         
         # Save to Redis, refreshing the 15 minute total TTL
         await self._cache.set_dict(redis_key, payload, verification_settings.OTP_RESEND_WINDOW_SECONDS) 
+        
+        # Reset the attempt counter atomically
+        attempt_key = f"otp_attempts:{email_hash}"
+        await self._cache.delete_key(attempt_key)
         
         await self._email_sender.send_verification_email(email, otp)
         await self._logger.info(f"Resent verification OTP to pending user {email}")

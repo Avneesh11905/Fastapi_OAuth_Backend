@@ -105,6 +105,7 @@ class Container:
             refresh_repo=self.refresh_token_repo,
             hasher=self.password_hasher,
             logger=AsyncSQLLogger("LoginLocalUseCase"),
+            email_sender=self.email_sender,
         )
 
         self.request_new_verification_email_usecase: RequestNewVerificationEmailUseCase[SQLAlchemyUnitOfWork] = RequestNewVerificationEmailUseCase(
@@ -144,6 +145,7 @@ class Container:
             user_repo=self.user_repo,
             cache=self.cache_adapter,
             hasher=self.password_hasher,
+            refresh_repo=self.refresh_token_repo,
         )
 
         self.list_sessions_usecase: ListSessionsUseCase[SQLAlchemyUnitOfWork] = ListSessionsUseCase(
@@ -158,6 +160,7 @@ class Container:
             user_repo=self.user_repo,
             hasher=self.password_hasher,
             logger=AsyncSQLLogger("ChangePasswordUseCase"),
+            refresh_repo=self.refresh_token_repo,
         )
 
 _container_instance = None

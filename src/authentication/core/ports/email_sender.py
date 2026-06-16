@@ -21,3 +21,7 @@ class EmailSenderPort(Protocol):
     async def send_verification_email(self, to_email: str, otp: str) -> None:
         """Send an email address verification email containing a 6-digit OTP."""
         ...
+
+    async def send_account_restored_email(self, to_email: str, name: str | None) -> None:
+        """Send an email notifying the user that their account has been restored."""
+        ...

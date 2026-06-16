@@ -37,7 +37,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "type": err.get("type")
         })
     await logger.warning(f"Validation Error at {request.url.path}: {errors}")
-    return build_error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, errors)
+    return build_error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, errors)
 
 async def auth_domain_exception_handler(request: Request, exc: AuthBaseException) -> JSONResponse:
     """Handles all auth-related Domain Exceptions gracefully by dynamically reading their status code."""

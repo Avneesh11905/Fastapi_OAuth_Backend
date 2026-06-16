@@ -37,6 +37,10 @@ class RefreshTokenRepositoryPort(Protocol[SessionType]):
         """Revoke a specific token family (logout from device)."""
         ...
 
+    async def revoke_all_for_user(self, session: SessionType, user_id: UUID) -> None:
+        """Revoke all token families for a given user."""
+        ...
+
     async def cleanup_expired(self, session: SessionType) -> int:
         """Delete all expired and used tokens. Returns count deleted."""
         ...

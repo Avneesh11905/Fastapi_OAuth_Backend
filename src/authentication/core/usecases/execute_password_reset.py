@@ -8,6 +8,7 @@ from typing import Protocol, Any, Generic, TypeVar
 from src.authentication.core.ports import UserRepositoryPort
 from src.shared.core.ports.cache import CachePort
 from src.authentication.core.ports.security.password_hasher import PasswordHasherPort
+from src.authentication.core.ports import RefreshTokenRepositoryPort
 
 class UoWPort(Protocol):
     session: Any
@@ -15,10 +16,11 @@ UoWType = TypeVar("UoWType", bound=UoWPort)
 class ExecutePasswordResetUseCase(Generic[UoWType]):
     """Handles validating the token and updating the password."""
     
-    def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, hasher: PasswordHasherPort):
+    def __init__(self, user_repo: UserRepositoryPort, cache: CachePort, hasher: PasswordHasherPort, refresh_repo: RefreshTokenRepositoryPort):
         self.user_repo = user_repo
         self.cache = cache
         self.hasher = hasher
+        self.refresh_repo = refresh_repo
         
     async def execute(self, uow: UoWType, token: str, new_password: str) -> bool:
         user_id = await self.cache.get_string(f"pwd_reset:{token}")
@@ -29,6 +31,9 @@ class ExecutePasswordResetUseCase(Generic[UoWType]):
         from uuid import UUID
         user_id_uuid = UUID(user_id)
         await self.user_repo.update_password(uow.session, user_id_uuid, hashed_password)
+        
+        # Invalidate all active sessions for the user
+        await self.refresh_repo.revoke_all_for_user(uow.session, user_id_uuid)
         
         # Invalidate the token
         await self.cache.delete_key(f"pwd_reset:{token}")

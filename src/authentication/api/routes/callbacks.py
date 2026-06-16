@@ -40,8 +40,8 @@ async def oauth_callback(
         user_info = await parser(oauth_client, token)
     except InvalidProviderException:
         raise
-    except Exception as e:
-        raise OAuthFailedException(f"Failed to authenticate with {provider}: {str(e)}")
+    except Exception:
+        raise OAuthFailedException(f"Failed to authenticate with {provider}")
 
     client_meta = extract_client_metadata(request)
     async with uow:

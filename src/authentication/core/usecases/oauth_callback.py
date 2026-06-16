@@ -59,9 +59,10 @@ class OAuthCallbackUseCase(Generic[UoWType]):
         # Step 1: Check if this exact provider+sub already exists
         user = await self._user_repo.find_by_oauth(uow.session, provider, oauth_sub)
         if user:
-            if user.deleted_at is not None:
+            if getattr(user, 'deleted_at', None) is not None:
                 await self._user_repo.undelete_user(uow.session, user.id)
                 user.deleted_at = None
+                await self._email_sender.send_account_restored_email(user.email, user.name)
                 
             # We explicitly DO NOT update the name/picture here so we don't overwrite user preferences
             refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)
@@ -86,9 +87,10 @@ class OAuthCallbackUseCase(Generic[UoWType]):
                 await self._user_repo.disable_local_login(uow.session, user.id)
                 await self._user_repo.verify_user_email(uow.session, user.id)
 
-            if user.deleted_at is not None:
+            if getattr(user, 'deleted_at', None) is not None:
                 await self._user_repo.undelete_user(uow.session, user.id)
                 user.deleted_at = None
+                await self._email_sender.send_account_restored_email(user.email, user.name)
 
             await self._user_repo.link_oauth_account(uow.session, user.id, provider, oauth_sub)
             refresh_token = await self._refresh_repo.create(uow.session, user.id, auth_provider=provider, client_meta=client_meta)

@@ -38,6 +38,13 @@ def mock_usecases():
                 id = "123"
             return MockUser(), "mock_refresh_token"
             
+    class MockExecutePasswordResetUseCase:
+        async def execute(self, *args, **kwargs):
+            token = kwargs.get("token") or (args[1] if len(args) > 1 else None)
+            if token == "nonexistent_token":
+                return False
+            return True
+
     class MockLogoutUseCase:
         async def execute(self, *args, **kwargs):
             pass
@@ -62,7 +69,7 @@ def mock_usecases():
         deps.get_request_new_verification_email_usecase: MockUseCase(),
         deps.get_verify_email_usecase: MockLoginUseCase(),
         deps.get_request_password_reset_usecase: MockUseCase(),
-        deps.get_execute_password_reset_usecase: MockUseCase(),
+        deps.get_execute_password_reset_usecase: MockExecutePasswordResetUseCase(),
         deps.get_logout_usecase: MockLogoutUseCase(),
         deps.get_list_sessions_usecase: MockListSessionsUseCase(),
         deps.get_revoke_session_usecase: MockRevokeSessionUseCase(),
@@ -283,4 +290,69 @@ def test_authorization_dependencies(test_client):
     with patch.object(custom_claims_provider, "has_permission", new_callable=AsyncMock, return_value=True):
         resp = test_client.get("/test/write-doc", headers={"X-CSRF": _get_valid_csrf("mock_refresh_token")})
         assert resp.status_code == 200
+
+
+def test_register_rejects_weak_password(test_client):
+    """Password shorter than 8 chars must return 422 Unprocessable Entity."""
+    resp = test_client.post(
+        "/auth/register",
+        json={"email": "weak@example.com", "password": "short", "name": "User"}
+    )
+    assert resp.status_code == 422
+
+
+def test_register_rejects_invalid_email(test_client):
+    """Malformed email must return 422."""
+    resp = test_client.post(
+        "/auth/register",
+        json={"email": "not-an-email", "password": "StrongPass123!", "name": "User"}
+    )
+    assert resp.status_code == 422
+
+
+def test_refresh_without_cookie_returns_204(test_client):
+    """Missing refresh token cookie must return 204 No Content, not 500."""
+    test_client.cookies.clear()
+    test_client.cookies.set("csrf_token", "anything")
+    resp = test_client.post(
+        "/auth/refresh",
+        headers={"X-CSRF": "anything"},
+    )
+    assert resp.status_code == 204
+
+
+def test_protected_endpoint_without_bearer_returns_401(test_client):
+    """Requests to protected endpoints with no Authorization header -> 401."""
+    from src.authentication.api.dependencies import get_current_user, get_jwt_payload
+    saved = test_client.app.dependency_overrides.pop(get_jwt_payload, None)
+    saved2 = test_client.app.dependency_overrides.pop(get_current_user, None)
+    try:
+        resp = test_client.get("/auth/sessions")
+        assert resp.status_code == 401
+    finally:
+        if saved:
+            test_client.app.dependency_overrides[get_jwt_payload] = saved
+        if saved2:
+            test_client.app.dependency_overrides[get_current_user] = saved2
+
+
+def test_password_reset_invalid_token_returns_400(test_client):
+    """An invalid reset token must return 400, not 500."""
+    resp = test_client.post(
+        "/auth/password/reset",
+        json={"token": "nonexistent_token", "new_password": "NewPass123!"}
+    )
+    assert resp.status_code == 400
+
+
+def test_revoke_session_invalid_uuid_returns_422(test_client):
+    """Passing a non-UUID family_id path param must return 422."""
+    resp = test_client.delete("/auth/sessions/not-a-uuid")
+    assert resp.status_code == 422
+
+
+def test_csrf_missing_header_returns_403(test_client):
+    """A CSRF-protected endpoint with no X-CSRF header must return 403."""
+    resp = test_client.post("/auth/logout")
+    assert resp.status_code == 403
 

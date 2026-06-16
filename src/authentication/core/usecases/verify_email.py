@@ -65,11 +65,10 @@ class VerifyEmailUseCase(Generic[UoWType]):
             await self._logger.warning(f"Verification failed: OTP expired for {email}")
             raise InvalidTokenException(detail="OTP has expired. Please request a new one.")
             
-        # 4. Increment attempt count and persist atomically inside the same payload
+        # 4. Increment attempt count atomically using the dedicated counter key
         from src.shared.config import verification_settings
-        attempts = int(payload.get("attempts", 0)) + 1
-        payload["attempts"] = attempts
-        await self._cache.set_dict(redis_key, payload, verification_settings.OTP_RESEND_WINDOW_SECONDS)
+        attempt_key = f"otp_attempts:{email_hash}"
+        attempts = await self._cache.incr(attempt_key, ttl=verification_settings.OTP_RESEND_WINDOW_SECONDS)
 
         if attempts > verification_settings.OTP_MAX_ATTEMPTS:
             await self._cache.delete_key(redis_key)
@@ -94,8 +93,9 @@ class VerifyEmailUseCase(Generic[UoWType]):
         # Issue a refresh token to auto-login
         token = await self._refresh_repo.create(uow.session, user.id, client_meta=client_meta)
         
-        # 6. Clean up Redis
+        # 6. Clean up Redis (both registration payload and attempts counter)
         await self._cache.delete_key(redis_key)
+        await self._cache.delete_key(attempt_key)
         
         # 7. Send the welcome email
         await self._email_sender.send_welcome_email(user.email, user.name)

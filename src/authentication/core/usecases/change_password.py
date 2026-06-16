@@ -1,7 +1,7 @@
 from typing import Protocol, Any, Generic, TypeVar
-from src.authentication.core.ports import UserRepositoryPort, PasswordHasherPort
+from src.authentication.core.ports import UserRepositoryPort, PasswordHasherPort, RefreshTokenRepositoryPort
 from src.shared.core.ports.logger import LoggerPort
-from src.authentication.core.domain.exceptions import InvalidCredentialsException
+from src.authentication.core.domain.exceptions import InvalidCredentialsException, SamePasswordException
 from uuid import UUID
 
 class UoWPort(Protocol):
@@ -11,14 +11,14 @@ UoWType = TypeVar("UoWType", bound=UoWPort)
 class ChangePasswordUseCase(Generic[UoWType]):
     """Handles updating a user's password when they are already authenticated."""
     
-    def __init__(self, user_repo: UserRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort):
+    def __init__(self, user_repo: UserRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, refresh_repo: RefreshTokenRepositoryPort):
         self._user_repo = user_repo
         self._hasher = hasher
         self._logger = logger
+        self._refresh_repo = refresh_repo
 
     async def execute(self, uow: UoWType, user_id: UUID, current_password: str | None, new_password: str) -> None:
         if current_password and current_password == new_password:
-            from src.authentication.core.domain.exceptions import SamePasswordException
             raise SamePasswordException()
             
         stored_hash = await self._user_repo.find_password_hash(uow.session, user_id)
@@ -32,5 +32,8 @@ class ChangePasswordUseCase(Generic[UoWType]):
         # Hash and update the new password
         new_hash = await self._hasher.hash_password(new_password)
         await self._user_repo.update_password(uow.session, user_id, new_hash)
+        
+        # Revoke all sessions
+        await self._refresh_repo.revoke_all_for_user(uow.session, user_id)
         
         await self._logger.info(f"User {user_id} updated their password successfully")

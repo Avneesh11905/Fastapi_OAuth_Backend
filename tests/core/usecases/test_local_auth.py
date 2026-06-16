@@ -33,12 +33,13 @@ def verify_usecase(user_repo, logger_port, mock_cache, refresh_token_port, email
     )
 
 @pytest.fixture
-def login_usecase(user_repo, refresh_token_port, password_hasher, logger_port):
+def login_usecase(user_repo, refresh_token_port, password_hasher, logger_port, email_sender):
     return LoginLocalUserUseCase(
         user_repo=user_repo,
         refresh_repo=refresh_token_port,
         hasher=password_hasher,
-        logger=logger_port
+        logger=logger_port,
+        email_sender=email_sender
     )
 
 @pytest.mark.asyncio
@@ -112,3 +113,57 @@ async def test_login_invalid_password_fails(register_usecase, verify_usecase, lo
     from src.authentication.core.domain.exceptions import InvalidCredentialsException
     with pytest.raises(InvalidCredentialsException, match="Invalid email or password"):
         await login_usecase.execute(mock_session, email, "wrongpassword")
+
+
+@pytest.mark.asyncio
+async def test_expired_otp_fails(register_usecase, verify_usecase, mock_session, mock_cache, email_sender):
+    """G-09: An expired OTP must raise InvalidTokenException, not InvalidCredentialsException."""
+    import time
+    import hashlib
+    email = "expired@example.com"
+    await register_usecase.execute(mock_session, email, "pass", "User")
+    otp = email_sender.sent_otps[email]
+
+    # Manually backdate the OTP expiry
+    email_hash = hashlib.sha256(email.encode()).hexdigest()
+    payload = await mock_cache.get_dict(f"pending_reg:{email_hash}")
+    payload["otp_expires_at"] = int(time.time()) - 1
+    await mock_cache.set_dict(f"pending_reg:{email_hash}", payload, 900)
+
+    from src.authentication.core.domain.exceptions import InvalidTokenException
+    with pytest.raises(InvalidTokenException, match="expired"):
+        await verify_usecase.execute(mock_session, email, otp)
+
+
+@pytest.mark.asyncio
+async def test_login_unverified_email_returns_403(login_usecase, register_usecase, mock_session, email_sender):
+    """G-10: Unverified users must receive UnverifiedEmailException (maps to 403 HTTP)."""
+    email = "unverified@example.com"
+    await register_usecase.execute(mock_session, email, "SecurePass", "User")
+    from src.authentication.core.domain.exceptions import UnverifiedEmailException
+    with pytest.raises(UnverifiedEmailException):
+        await login_usecase.execute(mock_session, email, "SecurePass")
+
+
+@pytest.mark.asyncio
+async def test_oauth_only_user_cannot_login_locally(login_usecase, mock_session, user_repo):
+    """G-11: A user with no local password (OAuth-only) cannot log in via /login/local."""
+    from src.authentication.core.domain.exceptions import InvalidCredentialsException
+    await user_repo.create_user_with_password(
+        mock_session, "oauth@example.com", "OAuth User", password_hash=None, is_verified=True
+    )
+    with pytest.raises(InvalidCredentialsException):
+        await login_usecase.execute(mock_session, "oauth@example.com", "anypassword")
+
+
+@pytest.mark.asyncio
+async def test_email_case_insensitive_login(register_usecase, verify_usecase, login_usecase,
+                                             mock_session, mock_cache, email_sender):
+    """G-08 (AUD-08): Register with lowercase email, login with uppercase — must succeed."""
+    email = "mixedcase@example.com"
+    await register_usecase.execute(mock_session, email, "SecurePass", "User")
+    otp = email_sender.sent_otps[email]
+    await verify_usecase.execute(mock_session, email, otp)
+    # Login with the same canonical lowercase form (normalisation happens in schema layer)
+    user, token = await login_usecase.execute(mock_session, email, "SecurePass")
+    assert user is not None

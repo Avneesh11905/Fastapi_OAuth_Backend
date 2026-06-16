@@ -7,9 +7,11 @@ from src.authentication.core.domain import UserIdentity
 from src.authentication.core.ports import UserRepositoryPort
 from src.authentication.core.ports import RefreshTokenRepositoryPort
 from src.authentication.core.ports import PasswordHasherPort
+from src.authentication.core.ports.email_sender import EmailSenderPort
 from src.shared.core.ports.logger import LoggerPort
 from typing import Protocol, Any, Generic, TypeVar
 from src.authentication.core.domain.session import ClientMetadata
+from src.authentication.core.domain.exceptions import InvalidCredentialsException, UnverifiedEmailException
 
 class UoWPort(Protocol):
     session: Any
@@ -17,11 +19,12 @@ UoWType = TypeVar("UoWType", bound=UoWPort)
 class LoginLocalUserUseCase(Generic[UoWType]):
     """Handles user login with email and password."""
 
-    def __init__(self, user_repo: UserRepositoryPort, refresh_repo: RefreshTokenRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort):
+    def __init__(self, user_repo: UserRepositoryPort, refresh_repo: RefreshTokenRepositoryPort, hasher: PasswordHasherPort, logger: LoggerPort, email_sender: EmailSenderPort):
         self._user_repo = user_repo
         self._refresh_repo = refresh_repo
         self._hasher = hasher
         self._logger = logger
+        self._email_sender = email_sender
 
     async def execute(self, uow: UoWType, email: str, password: str, client_meta: ClientMetadata | None = None) -> tuple[UserIdentity, str]:
         """
@@ -29,8 +32,6 @@ class LoginLocalUserUseCase(Generic[UoWType]):
         Returns (user, raw_refresh_token).
         Raises ValueError on invalid credentials or unverified email.
         """
-        from src.authentication.core.domain import InvalidCredentialsException, UnverifiedEmailException
-        
         user = await self._user_repo.find_by_email(uow.session, email)
         if not user:
             await self._logger.warning(f"Login failed: Email {email} not found")
@@ -59,9 +60,10 @@ class LoginLocalUserUseCase(Generic[UoWType]):
             raise InvalidCredentialsException()
 
         # Restore user if soft deleted
-        if user.deleted_at is not None:
+        if getattr(user, 'deleted_at', None) is not None:
             await self._user_repo.undelete_user(uow.session, user.id)
             user.deleted_at = None
+            await self._email_sender.send_account_restored_email(user.email, user.name)
             await self._logger.info(f"User {user.id} account restored on local login")
 
         # Issue a long-lived refresh token. The API layer will wrap this in an HttpOnly cookie.

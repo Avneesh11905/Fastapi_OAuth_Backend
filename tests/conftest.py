@@ -33,7 +33,7 @@ class MockUserRepository:
         return user
 
     async def link_oauth_account(
-        self, session, user_id: str, provider: str, oauth_sub: str,
+        self, session, user_id: UUID, provider: str, oauth_sub: str,
     ) -> None:
         self.oauth_links.append((user_id, provider, oauth_sub))
 
@@ -68,6 +68,17 @@ class MockUserRepository:
     async def update_password(self, session, user_id: UUID, new_password_hash: str) -> None:
         self.passwords[user_id] = new_password_hash
 
+    async def undelete_user(self, session, user_id: UUID) -> None:
+        user = self.users.get(user_id)
+        if user:
+            user.deleted_at = None
+
+    async def cleanup_unverified_users(self, session, hours_old: int = 24) -> int:
+        return 0
+
+    async def cleanup_soft_deleted_users(self, session, days_old: int = 30) -> int:
+        return 0
+
 class MockEmailSender:
     def __init__(self):
         self.sent_otps = {}
@@ -76,6 +87,7 @@ class MockEmailSender:
     async def send_password_reset_email(self, to_email: str, reset_url: str): pass
     async def send_verification_email(self, to_email: str, otp: str): 
         self.sent_otps[to_email] = otp
+    async def send_account_restored_email(self, to_email: str, name: str | None): pass
 
 class MockCache:
     def __init__(self):
@@ -97,7 +109,7 @@ class MockCache:
         if key in self.data:
             del self.data[key]
 
-    async def incr(self, key: str) -> int:
+    async def incr(self, key: str, ttl: int | None = None) -> int:
         if key not in self.data:
             self.data[key] = "1"
             return 1
@@ -108,19 +120,22 @@ class MockCache:
 
 
 class MockRefreshTokenPort:
-    async def create(self, session, user_id: str, auth_provider: str = "local", client_meta=None) -> str:
+    async def create(self, session, user_id: UUID, family_id: UUID | None = None, auth_provider: str = "local", client_meta=None) -> str:
         return f"mock_token_for_{user_id}"
 
-    async def validate(self, session, token: str, client_meta=None) -> tuple[UserIdentity | None, str | None, str | None]:
+    async def validate(self, session, token: str, client_meta=None) -> tuple[UserIdentity | None, str | None, UUID | None]:
         return None, None, None
 
     async def revoke(self, session, token: str) -> None:
         pass
 
-    async def revoke_by_family(self, session, family_id: str) -> None:
+    async def revoke_by_family(self, session, family_id: UUID) -> None:
         pass
 
-    async def get_active_sessions(self, session, user_id: str, current_token: str | None = None) -> list:
+    async def revoke_all_for_user(self, session, user_id: UUID) -> None:
+        pass
+
+    async def get_active_sessions(self, session, user_id: UUID, current_token: str | None = None) -> list:
         return []
 
     async def cleanup_expired(self, session) -> int:
@@ -133,6 +148,9 @@ class MockPasswordHasher:
 
     async def verify_password(self, password: str, hashed_password: str) -> bool:
         return hashed_password == f"hashed_{password}"
+
+    async def dummy_verify(self) -> None:
+        pass
 
 
 class MockLogger:

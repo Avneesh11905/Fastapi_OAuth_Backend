@@ -8,9 +8,14 @@
 ## 📖 Introduction
 This template provides a **strict, organized foundation** to handle authentication workflows. By utilizing Domain-Driven Design (DDD) and Hexagonal Architecture, the business logic remains pristine and uncoupled from infrastructure (FastAPI, SQLAlchemy, Redis). 
 
-> **Database Independence:** Out of the box, this template is **SQL-based** (using SQLAlchemy & Alembic), but because the system is deeply modular, you are not locked in! You can easily swap out the SQL database for MongoDB, DynamoDB, or any other backend simply by writing a new adapter. See [6. 🛠️ How to Swap Adapters](#6-️-how-to-swap-adapters) to learn how.
+It is designed with security and enterprise-readiness in mind, featuring:
+- **Strict Type Safety:** Enforcement of core domain models like `UUID` and `EmailStr` across all boundaries.
+- **Advanced Session Management:** A dual-token architecture (HttpOnly Refresh Cookies + JWT Access Tokens) with lazy token rotation, session families, and remote device revocation.
+- **Asynchronous Background Processing:** Built-in `TaskRunnerPort` for non-blocking operations like sending emails and writing system logs, easily swappable with Celery or RabbitMQ.
 
-You can safely drop this into your new projects, easily swap out infrastructure components (like the database, email provider, or cache), and focus immediately on building your core features.
+> **Infrastructure Independence:** Out of the box, this template is **SQL-based** (using SQLAlchemy & Alembic), but because the system is deeply modular, you are not locked in! You can easily swap out the SQL database, cache, or email provider by writing a new adapter. See [6. 🛠️ How to Change Core Infrastructure](#6-️-how-to-change-core-infrastructure) to learn how.
+
+You can safely drop this into your new projects and focus immediately on building your core features, knowing the foundation is secure and highly decoupled.
 
 > [!TIP]
 > **React Frontend Companion**  
@@ -33,7 +38,7 @@ You can safely drop this into your new projects, easily swap out infrastructure 
   - [3.2 Infrastructure](#32-infrastructure)
   - [3.3 Email Provider](#33-email-provider)
   - [3.4 OAuth Providers (Optional)](#34-oauth-providers-optional)
-  - [3.5 Token \& Rate Limiting Thresholds](#35-token--rate-limiting-thresholds)
+  - [3.5 Token, Verification \& Rate Limiting Thresholds](#35-token-verification--rate-limiting-thresholds)
 - [4. 🔄 Authentication Workflows](#4--authentication-workflows)
   - [4.1 Local Registration](#41-local-registration)
   - [4.2 Login \& Session Issuance (Local)](#42-login--session-issuance-local)
@@ -65,7 +70,7 @@ You can safely drop this into your new projects, easily swap out infrastructure 
 - [10. ⚙️ Background Task Processing](#10-️-background-task-processing)
 - [11. 🧪 Testing](#11--testing)
 - [12. 🚨 Production Deployment Checklist](#12--production-deployment-checklist)
-  - [12.1 Enforce Redis Caching](#121-enforce-redis-caching)
+  - [12.1 Enforce Remote Caching](#121-enforce-remote-caching)
   - [12.2 Set Environment to Production (`ENV="production"`)](#122-set-environment-to-production-envproduction)
   - [12.3 Strictly Define CORS Origins](#123-strictly-define-cors-origins)
   - [12.4 Understand Cookie Boundaries (`SameSite`)](#124-understand-cookie-boundaries-samesite)
@@ -217,8 +222,9 @@ The `.env` file controls the entire behavior of the application without needing 
 ### 4.1 Local Registration
 A database-first registration flow prevents malicious actors from claiming emails they don't own. 
 
-- **The Flow:** A user is saved immediately with `is_verified=False`. If they do not verify their email using the 6-digit OTP within 15 minutes, the OTP expires. 
+- **The Flow:** A user is saved immediately with `is_verified=False`. If they do not verify their email using the 6-digit OTP within 5 minutes, the OTP expires. 
 - **Retry Logic:** If the user abandons the flow and tries to register again hours later, the backend gracefully accepts it, updates their pending password, and dispatches a fresh OTP.
+- **Brute-Force Protection:** The OTP flow implements atomic counting and strictly locks the account registration process after 5 failed attempts (requiring a new OTP request).
 - **Garbage Collection:** To prevent database bloat from bots, a background task automatically purges unverified user accounts older than 24 hours.
 
 ```mermaid
@@ -317,7 +323,7 @@ sequenceDiagram
 Logout and device revocation use two complementary mechanisms:
 
 - **Access Token (`jti`) blacklist** — Because JWTs are stateless, the current access token's unique ID (`jti`) is written to the cache with a TTL equal to its remaining lifetime. Any subsequent request bearing that token is rejected immediately, even before it expires naturally.
-- **Refresh Token soft-invalidation** — On logout or device revocation (`DELETE /auth/sessions/{family_id}`), all refresh tokens in the session family are marked `used=True` in the database. No Redis `blacklist:family:*` key is written. Active access tokens from revoked sessions expire naturally within `ACCESS_TOKEN_LIFETIME_MINUTES` (default 15 min).
+- **Refresh Token soft-invalidation** — On logout, device revocation (`DELETE /auth/sessions/{family_id}`), **password changes**, or **password resets**, all refresh tokens in the session family are marked `used=True` in the database. No Redis `blacklist:family:*` key is written. Active access tokens from revoked sessions expire naturally within `ACCESS_TOKEN_LIFETIME_MINUTES` (default 15 min).
 
 > [!NOTE]
 > **Multi-worker note:** The per-`jti` blacklist still requires a shared cache (Redis) in multi-worker deployments. The family revocation check is DB-only and works correctly across workers without Redis.
@@ -340,7 +346,7 @@ You only *have* to build two routes on your frontend to handle the core flows:
 > **Token Mechanics:** The backend returns the **Access Token** in the JSON body, which you must attach as `Authorization: Bearer <token>` to protected API requests. The **Refresh Token** is set as a secure, `HttpOnly` cookie—so the browser handles it completely automatically!
 
 > [!WARNING]
-> **Account Deletion — 30-day Recovery Window:** `DELETE /users/me` performs a **soft-delete** — the account is immediately deactivated (the user cannot log in) and is scheduled for permanent purge after **30 days**. Within that window, the user can recover their account simply by logging in again. After 30 days, the account and all associated data (OAuth links, passwords, sessions) are permanently removed by a background cleanup task. Ensure your frontend clearly communicates this recovery window before calling this endpoint.
+> **Account Deletion — 30-day Recovery Window:** `DELETE /users/me` performs a **soft-delete** — the account is immediately deactivated (the user cannot log in) and is scheduled for permanent purge after **30 days**. Within that window, the user can recover their account simply by logging in again. When the user logs in to recover their account, a security notification email is automatically dispatched. After 30 days, the account and all associated data (OAuth links, passwords, sessions) are permanently removed by a background cleanup task. Ensure your frontend clearly communicates this recovery window before calling this endpoint.
 
 ---
 

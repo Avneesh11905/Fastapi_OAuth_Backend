@@ -67,6 +67,16 @@ class DBRefreshTokenRepositoryAdapter(RefreshTokenRepositoryPort[AsyncSession]):
         """Revoke a specific token family."""
         await self._revoke_family(session, family_id)
 
+    async def revoke_all_for_user(self, session: AsyncSession, user_id: UUID) -> None:
+        """Revoke all token families for a user."""
+        result = await session.execute(
+            select(RefreshToken.family_id)
+            .where(RefreshToken.user_id == user_id)
+            .distinct()
+        )
+        for family_id in result.scalars():
+            await self._revoke_family(session, family_id)
+
     async def cleanup_expired(self, session: AsyncSession) -> int:
         """Delete all expired and used refresh tokens. Returns count deleted."""
         now = datetime.now(timezone.utc)

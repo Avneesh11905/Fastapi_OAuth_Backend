@@ -100,3 +100,18 @@ class AuthEmailService:
             template_name="security/otp_verification.html",
             context=context,
         )
+
+    async def send_account_restored_email(self, to_email: str, name: str | None) -> None:
+        display_name = name or "there"
+        context = {
+            "name": display_name,
+            "proj_name": self._proj_name,
+            "theme": self._template_name,
+        }
+        self._task_runner.add_task(
+            self._render_and_send,
+            to_email=to_email,
+            subject=f"Security Alert: Your {self._proj_name} account was restored",
+            template_name="security/account_restored.html",
+            context=context,
+        )

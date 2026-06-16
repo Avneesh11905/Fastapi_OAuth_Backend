@@ -37,16 +37,17 @@ async def verify_csrf(request: Request):
         raise CSRFValidationException("Invalid CSRF token")
         
     if not refresh_token:
-        raise CSRFValidationException("Missing refresh token for CSRF binding")
+        return  # No session to protect, so CSRF is not applicable
 
     csrf_signer = URLSafeSerializer(app_settings.SESSION_SECRET, salt="csrf-token")
     refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
     
+    from itsdangerous.exc import BadSignature
     try:
         bound_hash = csrf_signer.loads(csrf_cookie)
         if not hmac.compare_digest(bound_hash, refresh_token_hash):
             raise CSRFValidationException("CSRF token is not bound to the current session")
-    except Exception:
+    except BadSignature:
         raise CSRFValidationException("Invalid or corrupted CSRF token")
 
 
